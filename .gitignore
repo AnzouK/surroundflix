@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+dist/
+build/
+release/
+_workflows_tmp/
+*.dmg
+.idea/
+.DS_Store
+report.json

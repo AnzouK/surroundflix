@@ -1,0 +1,64 @@
+# Checks Netflix's player once a day. When the playercore changes, the new
+# report is committed; if something Surroundflix relies on disappears, an
+# issue is opened so the maintainer knows before users start complaining.
+#
+# Netflix may only show the playercore URL to signed-in pages. If discovery
+# fails, set a repository variable PLAYERCORE_URL (Settings > Secrets and
+# variables > Actions > Variables) to the URL copied from Safari's Network tab.
+
+name: Watch Netflix playercore
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e .
+
+      - name: Check playercore
+        id: check
+        env:
+          PLAYERCORE_URL: ${{ vars.PLAYERCORE_URL }}
+        run: |
+          set +e
+          ARGS="--state .github/playercore-state.json --update-state --json"
+          if [ -n "$PLAYERCORE_URL" ]; then ARGS="$ARGS --url $PLAYERCORE_URL"; fi
+          surroundflix check $ARGS > report.json
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          cat report.json
+
+      - name: Commit new state
+        if: steps.check.outputs.status != '2'
+        run: |
+          if [ -n "$(git status --porcelain .github/playercore-state.json)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/playercore-state.json
+            git commit -m "chore: record new Netflix playercore"
+            git push
+          fi
+
+      - name: Open an issue if something broke
+        if: steps.check.outputs.status != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "Playercore check failed ($(date -u +%F))" \
+            --body "The daily check could not confirm Surroundflix still works.
+
+          \`\`\`json
+          $(cat report.json 2>/dev/null || echo 'no report: discovery failed, set PLAYERCORE_URL')
+          \`\`\`"
