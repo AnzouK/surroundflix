@@ -4,6 +4,7 @@ are replaced by fakes that record their arguments."""
 import json
 import plistlib
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -128,6 +129,10 @@ def fake_macos(monkeypatch, tmp_path):
             (tmp_path / "out" / "Surroundflix.dmg").write_text("dmg")
         return subprocess.CompletedProcess(cmd, 0, stdout="")
 
+    # Same result on Linux CI and on a real Mac, where lsregister exists.
+    lsregister = tmp_path / "lsregister"
+    lsregister.write_text("")
+    monkeypatch.setattr(package, "LSREGISTER", str(lsregister))
     for mod in (package, build):
         monkeypatch.setattr(mod.platform, "system", lambda: "Darwin")
         monkeypatch.setattr(mod.shutil, "which", lambda tool: "/usr/bin/" + tool)
@@ -138,13 +143,19 @@ def fake_macos(monkeypatch, tmp_path):
 def test_dmg_command(tmp_path, fake_macos, capsys):
     out = tmp_path / "out" / "Surroundflix.dmg"
     assert main(["dmg", "--work", str(tmp_path / "work"), "--output", str(out)]) == 0
-    tools = [c[0] if c[0] != "xcrun" else c[1] for c in fake_macos]
+    tools = [c[1] if c[0] == "xcrun" else Path(c[0]).name for c in fake_macos]
     assert tools == [
         "--find",
         "safari-web-extension-converter",
         "xcodebuild",
         "xcodebuild",
         "hdiutil",
+        "lsregister",
+    ]
+    # The build copy is unregistered so Safari doesn't list the extension twice.
+    assert fake_macos[-1][1:] == [
+        "-u",
+        str(tmp_path / "work" / "derived" / "Build" / "Products" / "Release" / "Surroundflix.app"),
     ]
     build_cmd = fake_macos[3]
     assert build_cmd[build_cmd.index("-scheme") + 1] == "Surroundflix"
