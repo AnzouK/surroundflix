@@ -4,17 +4,18 @@
 
 <h1>Surroundflix</h1>
 
-<p><strong>Netflix's Dolby 5.1 and Atmos tracks in Safari on macOS, with Spatial Audio on AirPods.</strong></p>
+<p><strong>Netflix's Dolby 5.1 and Atmos tracks in Safari on macOS, with Spatial Audio on AirPods, plus your choice of video quality and codec.</strong></p>
 
 <a href="https://github.com/AnzouK/surroundflix/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AnzouK/surroundflix/ci.yml?branch=main&label=CI&logo=github" alt="CI status"></a>
 <a href="https://github.com/AnzouK/surroundflix/releases"><img src="https://img.shields.io/github/v/release/AnzouK/surroundflix?include_prereleases&label=release&color=8250df" alt="Latest release"></a>
 <a href="https://github.com/AnzouK/surroundflix#AGPL-3.0-1-ov-file"><img src="https://img.shields.io/badge/License-AGPL--3.0-6c8f2d" alt="License: AGPL-3.0"></a>
 <img src="https://img.shields.io/badge/macOS-Safari%2016.4%2B-2f6f9f?logo=safari&logoColor=white" alt="macOS, Safari 16.4 or later">
-<img src="https://img.shields.io/badge/Chrome-AAC%205.1%20%28experimental%29-2f6f9f?logo=googlechrome&logoColor=white" alt="Chrome: AAC 5.1, experimental">
+<img src="https://img.shields.io/badge/Chrome-AAC%205.1-2f6f9f?logo=googlechrome&logoColor=white" alt="Chrome: AAC 5.1">
 <img src="https://img.shields.io/badge/audio-5.1%20%C2%B7%20Atmos-de9a40" alt="Audio: 5.1 and Atmos">
 <img src="https://img.shields.io/badge/interface-3%20languages-c9a227" alt="Interface in 3 languages">
 
 <p>
+<a href="#features">Features</a> &nbsp;·&nbsp;
 <a href="#install">Install</a> &nbsp;·&nbsp;
 <a href="#check-that-it-works">Check it works</a> &nbsp;·&nbsp;
 <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
@@ -27,11 +28,12 @@
 Netflix in Safari on macOS only sends stereo, even on the Premium plan with
 AirPods Pro, AirPods Max or a surround setup. Surroundflix asks Netflix for
 its Dolby Digital Plus 5.1 and Atmos tracks instead, so macOS can play them
-with Spatial Audio.
+with Spatial Audio. It also lets you choose the video quality and codec,
+and shows the Atmos, 5.1 and 4K badges Netflix hides on its web pages.
 
 > [!NOTE]
-> Experimental. Netflix can change its player at any time; a daily check
-> watches for that (see [Automatic watch](#automatic-watch)).
+> Netflix can change its player at any time; a daily check watches for
+> that (see [Automatic watch](#automatic-watch)).
 
 ## What you get
 
@@ -46,6 +48,87 @@ Safari decodes Netflix's Atmos stream (E-AC-3 JOC) down to its 5.1 bed and
 hands at most six channels to macOS. That limit is in WebKit and no
 extension can lift it. On AirPods, 5.1 with Spatial Audio and head tracking
 is still a clear step up from stereo.
+
+## Features
+
+<p align="center">
+  <img src="design/showcase.svg" width="720" alt="Surroundflix app window (extension on in Safari, audio and video notes, language menu, update check) next to the toolbar popup (5.1 and Atmos or 5.1 only, video quality and codec menus, and what Netflix sent: Dolby Atmos, 2160p HEVC Dolby Vision)">
+</p>
+
+### Audio
+
+The Surroundflix button in Safari's toolbar has two choices:
+
+| Audio | What it does |
+| --- | --- |
+| 5.1 and Atmos (default) | Asks Netflix for its Dolby Digital Plus 5.1, 5.1 HQ and Atmos tracks. Safari plays Atmos as its 5.1 bed |
+| 5.1 only | Leaves Atmos out of the request. Use it if an Atmos title doesn't start or stays silent |
+
+Chrome has no Dolby decoder, so its build asks for AAC 5.1 instead and
+the audio choice is greyed out.
+
+### Video quality
+
+| Video quality | What it does |
+| --- | --- |
+| Automatic (default) | Netflix picks, as without Surroundflix |
+| At least 720p / 1080p / 4K | Netflix still adapts to your connection, but never below that resolution |
+| Always the best | Only the highest bitrate, for video and for each audio format |
+| Data saver (720p max) | Never above 720p, for hotspots and capped plans |
+
+These modes remove streams from the list Netflix's player picks from; the
+player itself is untouched. If a title doesn't reach a minimum, its best
+streams are kept, so playback never breaks. Anything above Automatic needs
+a fast, stable connection, or playback pauses to buffer instead of lowering
+the quality. Netflix caps Chrome at 1080p (software DRM); Safari can reach
+4K HDR on a Premium plan with a compatible Mac and screen.
+
+### Codec
+
+| Codec | Notes |
+| --- | --- |
+| Automatic (default) | Netflix picks: usually AV1 in Chrome, HEVC in Safari |
+| H.264 | Highest bitrates at a given resolution, up to 1080p, no HDR. Netflix picks the profile |
+| H.264 Main / High | H.264 with that profile only. Main also asks for Netflix's second family of Main encodes (`-prk-qc`, the names the Kodi Netflix add-on uses), which on some titles has a much higher bitrate |
+| HEVC (H.265) | Safari only. Netflix's 4K, HDR10 and Dolby Vision streams |
+| AV1 | Smallest files for the same quality score; can look softer at low bitrates |
+| VP9 | Chrome only |
+
+Netflix picks the codec on its servers from the formats the player lists,
+and sends only that one. With a codec chosen, Surroundflix lists only that
+codec's formats, so Netflix sends it. Codecs your browser can't decode
+aren't offered in the menu (AV1 in Safari needs an Apple chip with an AV1
+decoder, M3 or later). If a title doesn't exist in the chosen codec, it
+may not start: switch back to Automatic. Quality and codec combine:
+HEVC with At least 4K gives 4K HEVC.
+
+Under each menu, a line explains the option currently chosen. Changes
+apply to the next title you start.
+
+### On this tab
+
+The bottom of the popup shows what Netflix sent for the title playing in
+the current tab: the best audio (Dolby Atmos, Dolby Digital Plus 5.1, AAC
+5.1 or stereo), the video (resolution, codec, HDR or Dolby Vision,
+bitrate) and the range of resolutions Netflix offers for it. If a Netflix
+tab doesn't answer, the popup says to allow Surroundflix on netflix.com.
+
+### Title badges
+
+Netflix sends the features of every title (Atmos, 5.1, 4K...) to its web
+pages but only draws some of them. Surroundflix adds `Dolby Atmos`, `5.1`
+and `Ultra HD 4K` next to Netflix's own badges, on title pages and in
+their episode and collection lists, when the browser can play them: Atmos
+and 4K in Safari, 5.1 in both. With "5.1 only" chosen, Atmos titles show
+`5.1`.
+
+### App window
+
+The macOS app shows whether the extension is on in Safari, with the setup
+steps until it is, opens Safari's settings, checks GitHub for a newer
+release, and comes in English, French and Portuguese (Portugal, Brazil and
+Angola, picked from the system language). The toolbar popup follows the
+browser's language.
 
 ## Install
 
@@ -64,29 +147,7 @@ Requires macOS with Safari 16.4 or later.
    a restart. Option B doesn't have this problem.
 4. Safari > Settings > Extensions: enable Surroundflix and allow it on netflix.com.
 
-The app window shows whether the extension is on, checks for updates, and
-is available in English, French and Portuguese. The Surroundflix button in Safari's toolbar lets you choose
-between **5.1 and Atmos** (default) and **5.1 only**, sets the video
-quality, and shows under "On this tab" the best audio and the video quality
-Netflix sent for the current title.
-
-| Video quality | What it does |
-| --- | --- |
-| Automatic (default) | Netflix picks, as without Surroundflix |
-| At least 720p / 1080p / 4K | Netflix still adapts to your connection, but never below that resolution |
-| Always the best | Only Netflix's best video stream, and the highest bitrate of each audio format |
-| Data saver (720p max) | Never above 720p, for hotspots and capped plans |
-
-These modes remove streams from the list Netflix's player picks from; the
-player itself is untouched. If a title doesn't reach a minimum, its best
-streams are kept, so playback never breaks. Anything above Automatic needs
-a fast, stable connection, or playback pauses to buffer instead of lowering
-the quality. Netflix caps Chrome at 1080p (software DRM); Safari can reach
-4K HDR on a Premium plan with a compatible Mac and screen.
-
-<p align="center">
-  <img src="design/showcase.svg" width="720" alt="Surroundflix app window (extension status, setup steps, audio note, language menu, update check) next to the toolbar popup (choice between 5.1 and Atmos or 5.1 only, and the best audio Netflix sent: Dolby Atmos)">
-</p>
+The toolbar button and the app window are described in [Features](#features).
 
 ### Option B: userscript
 
@@ -97,10 +158,10 @@ the quality. Netflix caps Chrome at 1080p (software DRM); Safari can reach
 
 Userscripts updates it automatically when a new release is out. To set a video
 mode for the userscript, build it with, for example,
-`surroundflix build --video-quality min1080`. The userscript is for Safari only and always asks for 5.1 and Atmos; it
+`surroundflix build --video-quality min1080 --video-codec h264`. The userscript is for Safari only and always asks for 5.1 and Atmos; it
 has no toolbar button. In Chrome, use the Chrome extension below.
 
-### Chrome (experimental)
+### Chrome
 
 Chrome has no Dolby decoder, on any system, so no Atmos or Dolby 5.1 there.
 The Chrome build asks Netflix for its AAC 5.1 track instead, on titles that
@@ -120,8 +181,8 @@ downmix. It's mostly useful with real 5.1 speakers.
 2. The player's audio menu should list `English (5.1)` or `English (Atmos)`.
 3. With AirPods connected, Control Center > Sound should say Multichannel / Spatial Audio, not Stereo.
 
-If Atmos titles ever fail to play, use the 5.1-only build (see below,
-`--preset surround`).
+If Atmos titles ever fail to play, choose **5.1 only** in the toolbar
+button (userscript: build it with `--preset surround`).
 
 ## How it works
 
@@ -138,9 +199,11 @@ Netflix's player, which broke each time Netflix released a new version.
 Surroundflix never modifies or redistributes Netflix code, so it only
 breaks if Netflix changes the request format itself.
 
-It doesn't touch DRM, accounts or video. The extension only runs on
-`www.netflix.com` and asks for a single permission, `storage`, to remember
-the choice made in its toolbar button.
+The video quality and codec choices work the same way: video formats are
+removed from that list, or streams from Netflix's answer, before the
+player sees them. It doesn't touch DRM or accounts. The extension only
+runs on `www.netflix.com` and asks for a single permission, `storage`, to
+remember the choices made in its toolbar button.
 
 ## Privacy and security
 
@@ -175,7 +238,8 @@ surroundflix dmg                # Surroundflix.app + .dmg in release/
 ```
 
 Type `__surroundflix` in the Web Inspector console on Netflix:
-`lastManifestAudio` shows which audio formats Netflix actually sent back.
+`lastManifestAudio` and `lastManifestVideo` show what Netflix actually sent
+back, and `requestedVideo` the video formats asked for when a codec is chosen.
 A `--debug` build also logs each step to the console. The
 [bug report form](https://github.com/AnzouK/surroundflix/issues/new?template=bug_report.yml)
 asks for that output.
@@ -186,15 +250,8 @@ After changing the app window, the popup or their English text, run
 `python scripts/make_showcase.py` to redraw `design/showcase.svg` (a test
 fails until you do).
 
-Pushing a tag like `v0.1.0` builds the .dmg on GitHub's macOS runners and
-attaches it to a release with the userscript and the Chrome extension
-(`.github/workflows/release.yml`).
-
-### Translations
-
-All interface text lives in `src/surroundflix/templates/i18n.json`. To add
-a language, copy the `en` block, translate it, add its name under
-`languages`, and run `pytest` (a test checks that no string is missing).
+Branches, commit messages, translations and releases are described in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Automatic watch
 
@@ -216,9 +273,9 @@ surroundflix check --url "https://assets.nflxext.com/.../cadmium-playercore-X.js
 
 ```
 src/surroundflix/
-  profiles.py           Netflix audio profile names and presets
-  templates/page.js     the in-page hook that edits Netflix's request
-  templates/content.js  passes the popup choice to page.js (and loads it in Safari)
+  profiles.py           Netflix audio profiles, presets, video modes and codecs
+  templates/page.js     the in-page hook: Netflix's request and answer, title badges
+  templates/content.js  passes the popup choices to page.js (and loads it in Safari)
   templates/popup.*     the toolbar button
   templates/app/        the app window (replaces Apple's default one)
   templates/i18n.json   every interface string, per language
@@ -227,6 +284,9 @@ src/surroundflix/
   package.py            builds the macOS app and the .dmg
   playercore.py         downloads and checks Netflix's player
   cli.py                the `surroundflix` command
+scripts/
+  make_showcase.py      redraws design/showcase.svg from the templates
+  release.py            dates the CHANGELOG, tags and pushes a release
 tests/                  pytest, including the hook run under Node
 ```
 
@@ -242,6 +302,8 @@ tests/                  pytest, including the hook run under Node
   for patching at runtime instead of shipping a modified player.
 - **[lkmvip / netflix-4K-DDplus](https://github.com/lkmvip/netflix-4K-DDplus)** and
   **TGSAN / [Netflix Plus](https://greasyfork.org/scripts/478739)**, for keeping DD+ alive in browsers.
+- **[CastagnaIT / Netflix add-on for Kodi](https://github.com/CastagnaIT/plugin.video.netflix)**,
+  whose list of Netflix's video profiles gave the `-prk-qc` H.264 Main encodes.
 
 ## Disclaimer
 

@@ -1,4 +1,5 @@
-"""Netflix audio profile names and the presets Surroundflix can request.
+"""Netflix audio profile names, the presets Surroundflix can request, and
+the video quality modes and codecs offered in the popup.
 
 Netflix's player (Cadmium) sends a list of "profiles" to the manifest
 endpoint. Each profile is a codec + layout the client claims it can play.
@@ -32,6 +33,10 @@ NO_DOLBY_PROFILES = [HEAAC_51]
 # Video quality modes offered in the popup (page.js has the matching rules).
 VIDEO_MODES = ["auto", "min720", "min1080", "min2160", "best", "saver720"]
 DEFAULT_VIDEO_MODE = "auto"
+
+# Video codecs the popup can prefer. "auto" lets Netflix's player choose.
+VIDEO_CODECS = ["auto", "h264", "h264main", "h264high", "hevc", "av1", "vp9"]
+DEFAULT_VIDEO_CODEC = "auto"
 
 # Strings the static playercore check expects to find. If Netflix renames
 # or drops these, the injected profiles would be ignored.

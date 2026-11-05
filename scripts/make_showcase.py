@@ -33,11 +33,28 @@ WIDTH = 940
 FRAME_CSS = """
 .sf-frame { display: flex; gap: 28px; align-items: flex-start; justify-content: center;
   padding: 8px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
-  --frame-line: #d1d9e0; --frame-muted: #59636e; }
-@media (prefers-color-scheme: dark) { .sf-frame { --frame-line: #3d444d; --frame-muted: #9198a1; } }
+  --frame-line: #c9c5bd; --frame-muted: #59636e; --bar: #e6e3dd; --bar-text: #4a4d53;
+  --pop-bg: #f4f2ee; }
+@media (prefers-color-scheme: dark) { .sf-frame { --frame-line: #3d424a; --frame-muted: #9198a1;
+  --bar: #2a2d32; --bar-text: #c9c7c2; --pop-bg: #1b1d21; } }
 .sf-frame figure { margin: 0; }
-.sf-panel { border: 1px solid var(--frame-line); border-radius: 6px; overflow: hidden; }
-.sf-frame figcaption { color: var(--frame-muted); text-align: center; margin-top: 8px; }
+.sf-frame figcaption { color: var(--frame-muted); text-align: center; margin-top: 10px; }
+/* A macOS window: title bar with the three window buttons. */
+.sf-window { border: 1px solid var(--frame-line); border-radius: 10px; overflow: hidden; }
+.sf-bar { position: relative; height: 28px; background: var(--bar); color: var(--bar-text);
+  border-bottom: 1px solid var(--frame-line); font-weight: 600; font-size: 13px;
+  display: flex; align-items: center; justify-content: center; }
+.sf-lights { position: absolute; left: 10px; top: 8px; display: flex; gap: 8px; }
+.sf-lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.sf-lights i:nth-child(1) { background: #ff5f57; } .sf-lights i:nth-child(2) { background: #febc2e; }
+.sf-lights i:nth-child(3) { background: #28c840; }
+/* Safari's popover: rounded panel with an arrow pointing at the toolbar button. */
+.sf-pop { position: relative; margin-top: 9px; border: 1px solid var(--frame-line);
+  border-radius: 10px; }
+.sf-pop .sf-popup { border-radius: 10px; overflow: hidden; }
+.sf-arrow { position: absolute; top: -7px; left: 50%; width: 12px; height: 12px; margin-left: -6px;
+  background: var(--pop-bg); border-left: 1px solid var(--frame-line);
+  border-top: 1px solid var(--frame-line); transform: rotate(45deg); }
 .sf-app { width: 584px; } .sf-popup { width: 300px; }
 """
 
@@ -118,10 +135,12 @@ def icon(size: int) -> str:
 def app_markup(strings: dict) -> str:
     html = (TEMPLATES / "app" / "Main.html").read_text()
     main = re.search(r'<main class="window">.*?</main>', html, re.S).group(0)
-    main = re.sub(r'\s*<p id="all-set"[^>]*></p>', "", main)
-    main = main.replace('data-i18n="status_checking"', 'data-i18n="status_off"')
+    # Shown as it looks once set up: extension on, setup steps replaced by "all set".
+    main = re.sub(r'\s*<ol id="steps">.*?</ol>', "", main, flags=re.S)
+    main = main.replace('<p id="all-set" hidden ', '<p id="all-set" ')
+    main = main.replace('data-i18n="status_checking"', 'data-i18n="status_on"')
     main = fill(main, strings)
-    main = main.replace('class="status" id="status"', 'class="status off" id="status"')
+    main = main.replace('class="status" id="status"', 'class="status on" id="status"')
     main = main.replace('id="version"></div>', f'id="version">{__version__}</div>')
     main = main.replace('href="#"', f'href="https://github.com/{REPO}"')
     main = main.replace(
@@ -146,10 +165,13 @@ def popup_markup(strings: dict) -> str:
     video = strings["tab_video"].split("{quality}")
     main = main.replace(
         '<p id="tab-video" hidden></p>',
-        f'<p id="tab-video">{video[0]}<strong>1080p \u00b7 5.8 Mb/s</strong>{video[1]}</p>',
+        f'<p id="tab-video">{video[0]}<strong>2160p \u00b7 HEVC Dolby Vision \u00b7 10.4 Mb/s'
+        f"</strong>{video[1]}</p>",
     )
     main = main.replace('<option value="auto" ', '<option value="auto" selected ')
-    vrange = strings["tab_video_range"].replace("{min}", "270p").replace("{max}", "1080p")
+    # Safari's menu: VP9 is Chrome only (popup.js removes it the same way).
+    main = re.sub(r'\s*<option [^>]*data-browser="chrome"[^>]*>[^<]*</option>', "", main)
+    vrange = strings["tab_video_range"].replace("{min}", "342p").replace("{max}", "2160p")
     main = main.replace(
         '<p id="tab-range" class="note" hidden></p>', f'<p id="tab-range" class="note">{vrange}</p>'
     )
@@ -165,13 +187,16 @@ def compose(height: int) -> str:
             scope_css((TEMPLATES / "app" / "Style.css").read_text(), ".sf-app"),
             scope_css((TEMPLATES / "popup.css").read_text(), ".sf-popup"),
             # The popup sets a fixed body width; the panel width does that here.
-            ".sf-popup { margin: 0; } .sf-app .window { margin: 0; }",
+            ".sf-popup { margin: 0; } .sf-app .window { margin: 0 auto; }",
         ]
     )
     body = (
         '<div class="sf-frame">'
-        f'<figure><div class="sf-panel">{app_markup(strings)}</div><figcaption>App window</figcaption></figure>'
-        f'<figure><div class="sf-panel">{popup_markup(strings)}</div><figcaption>Toolbar button</figcaption></figure>'
+        '<figure><div class="sf-window"><div class="sf-bar"><span class="sf-lights">'
+        "<i></i><i></i><i></i></span>Surroundflix</div>"
+        f"{app_markup(strings)}</div><figcaption>App window</figcaption></figure>"
+        f'<figure><div class="sf-pop"><i class="sf-arrow"></i>{popup_markup(strings)}</div>'
+        "<figcaption>Toolbar button in Safari</figcaption></figure>"
         "</div>"
     )
     return (

@@ -3,8 +3,8 @@
  *
  * Content scripts run in an isolated copy of the page's JavaScript, so the
  * JSON.stringify wrapper in page.js has to live in the page's own context.
- * This script passes the preset chosen in the popup to page.js through an
- * attribute on <html>, and, in Safari, loads page.js into the page. Chrome
+ * This script passes the choices made in the popup to page.js through
+ * attributes on <html>, and, in Safari, loads page.js into the page. Chrome
  * loads page.js itself (manifest "world": "MAIN").
  */
 (function () {
@@ -21,15 +21,21 @@
     if (typeof value === "string") root.setAttribute("data-surroundflix-video", value);
   }
 
+  function setCodec(value) {
+    if (typeof value === "string") root.setAttribute("data-surroundflix-codec", value);
+  }
+
   try {
-    Promise.resolve(api.storage.local.get(["preset", "videoQuality"])).then(function (stored) {
+    Promise.resolve(api.storage.local.get(["preset", "videoQuality", "videoCodec"])).then(function (stored) {
       setPreset(stored && stored.preset);
       setVideo(stored && stored.videoQuality);
+      setCodec(stored && stored.videoCodec);
     }, function () { /* no stored choice: page.js uses its defaults */ });
     api.storage.onChanged.addListener(function (changes, area) {
       if (area !== "local") return;
       if (changes.preset) setPreset(changes.preset.newValue);
       if (changes.videoQuality) setVideo(changes.videoQuality.newValue);
+      if (changes.videoCodec) setCodec(changes.videoCodec.newValue);
     });
   } catch (err) {
     // Storage unavailable: page.js falls back to the default preset.

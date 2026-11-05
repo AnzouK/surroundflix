@@ -22,9 +22,11 @@ from pathlib import Path
 from . import __version__
 from .profiles import (
     DEFAULT_PRESET,
+    DEFAULT_VIDEO_CODEC,
     DEFAULT_VIDEO_MODE,
     NO_DOLBY_PROFILES,
     PRESETS,
+    VIDEO_CODECS,
     VIDEO_MODES,
     resolve,
 )
@@ -78,12 +80,17 @@ def render_page_script(
     debug: bool = False,
     check_dolby: bool = False,
     video_quality: str = DEFAULT_VIDEO_MODE,
+    video_codec: str = DEFAULT_VIDEO_CODEC,
 ) -> str:
     """Return page.js with the profiles baked in."""
     resolve(preset)
     if video_quality not in VIDEO_MODES:
         raise ValueError(
             f"Unknown video quality '{video_quality}'. Choose one of: {', '.join(VIDEO_MODES)}"
+        )
+    if video_codec not in VIDEO_CODECS:
+        raise ValueError(
+            f"Unknown video codec '{video_codec}'. Choose one of: {', '.join(VIDEO_CODECS)}"
         )
     config = {
         "version": __version__,
@@ -93,20 +100,24 @@ def render_page_script(
         "checkDolby": check_dolby,
         # Default video mode; the extensions' popup overrides it.
         "videoQuality": video_quality,
+        "videoCodec": video_codec,
         "debug": debug,
     }
     return _fill(_template("page.js"), {"CONFIG": config})
 
 
 def render_userscript(
-    preset: str = DEFAULT_PRESET, debug: bool = False, video_quality: str = DEFAULT_VIDEO_MODE
+    preset: str = DEFAULT_PRESET,
+    debug: bool = False,
+    video_quality: str = DEFAULT_VIDEO_MODE,
+    video_codec: str = DEFAULT_VIDEO_CODEC,
 ) -> str:
     header = "\n".join(
         [
             "// ==UserScript==",
             "// @name         Surroundflix",
             f"// @version      {__version__}",
-            "// @description  Ask Netflix for 5.1 / Atmos audio in Safari (Spatial Audio friendly)",
+            "// @description  Netflix's 5.1 / Atmos audio in Safari (Spatial Audio friendly), with optional video quality and codec",
             f"// @homepageURL  {HOMEPAGE}",
             f"// @updateURL    {USERSCRIPT_URL}",
             f"// @downloadURL  {USERSCRIPT_URL}",
@@ -118,7 +129,11 @@ def render_userscript(
             "",
         ]
     )
-    return header + "\n" + render_page_script(preset, debug, video_quality=video_quality)
+    return (
+        header
+        + "\n"
+        + render_page_script(preset, debug, video_quality=video_quality, video_codec=video_codec)
+    )
 
 
 def shared_js() -> str:
@@ -132,6 +147,7 @@ def render_popup_script(preset: str, check_dolby: bool) -> str:
             "DEFAULT_PRESET": preset,
             "CHECK_DOLBY": check_dolby,
             "DEFAULT_VIDEO_QUALITY": DEFAULT_VIDEO_MODE,
+            "DEFAULT_VIDEO_CODEC": DEFAULT_VIDEO_CODEC,
         },
     )
     return shared_js() + "\n" + popup
@@ -154,14 +170,14 @@ def render_manifest(chrome: bool = False) -> dict:
         "manifest_version": 3,
         "name": "Surroundflix",
         "version": __version__,
-        "description": "Ask Netflix for its 5.1 / Atmos audio tracks.",
+        "description": "Netflix's 5.1 / Atmos audio, video quality and codec choice, and the title badges Netflix hides.",
         "homepage_url": HOMEPAGE,
         "icons": {str(s): f"images/icon-{s}.png" for s in ICON_SIZES if s <= 512},
         "action": {
             "default_popup": "popup.html",
             "default_icon": {"48": "images/icon-48.png", "96": "images/icon-96.png"},
         },
-        # Only "storage", for the popup's audio choice. Runs on netflix.com only.
+        # Only "storage", for the popup's choices. Runs on netflix.com only.
         "permissions": ["storage"],
     }
     if chrome:
@@ -211,6 +227,7 @@ def build(
     preset: str = DEFAULT_PRESET,
     debug: bool = False,
     video_quality: str = DEFAULT_VIDEO_MODE,
+    video_codec: str = DEFAULT_VIDEO_CODEC,
 ) -> BuildResult:
     out_dir = Path(out_dir)
     dirs = {
@@ -223,7 +240,7 @@ def build(
 
     dirs["userscript"].mkdir(parents=True)
     userscript = dirs["userscript"] / "surroundflix.user.js"
-    userscript.write_text(render_userscript(preset, debug, video_quality), "utf-8")
+    userscript.write_text(render_userscript(preset, debug, video_quality, video_codec), "utf-8")
 
     _write_extension(dirs["safari-webextension"], preset, debug, chrome=False)
     _write_extension(dirs["chrome-extension"], preset, debug, chrome=True)

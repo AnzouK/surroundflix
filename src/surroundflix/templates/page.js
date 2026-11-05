@@ -5,12 +5,15 @@
  * Cadmium (Netflix's player) serialises its manifest request with
  * JSON.stringify before encrypting and sending it. That request carries a
  * "profiles" list of the formats the browser claims to support. We wrap
- * JSON.stringify and append extra audio profiles to that list. Netflix's
- * own code is never modified, so a new Cadmium version doesn't break this
- * unless Netflix changes the request format itself.
+ * JSON.stringify to add audio profiles to that list (and, with a codec
+ * chosen, keep only that codec's video profiles), and JSON.parse /
+ * Response.json to read Netflix's answer: the streams it sent, which the
+ * video quality choice trims, and the title features behind the badges.
+ * Netflix's own code is never modified, so a new Cadmium version doesn't
+ * break this unless Netflix changes the request format itself.
  *
- * DRM is untouched: audio still comes through Netflix's normal, licensed
- * playback path.
+ * DRM is untouched: everything still plays through Netflix's normal,
+ * licensed playback path.
  */
 (function () {
   "use strict";
@@ -18,15 +21,16 @@
   var CONFIG = /*__SURROUNDFLIX_CONFIG__*/ null;
   if (!CONFIG || window.__surroundflix) return;
 
-  // Prefixes Netflix uses for audio profile names. A "profiles" array is
-  // only touched if it already contains one of these, so unrelated data
-  // that happens to use the same key is left alone.
+  // Prefixes Netflix uses for audio profile names. Audio profiles are only
+  // added to a "profiles" array that already contains one of these, so
+  // unrelated data that happens to use the same key is left alone.
   var AUDIO_PROFILE = /^(heaac|xheaac|ddplus)-/;
   var MANIFEST_KEYS = ["params", "profiles", "profileGroups"];
   var MAX_DEPTH = 5;
   // The extension writes the choices made in its popup here.
   var PRESET_ATTR = "data-surroundflix-preset";
   var VIDEO_ATTR = "data-surroundflix-video";
+  var CODEC_ATTR = "data-surroundflix-codec";
   // Video quality modes, by name. "auto" leaves Netflix's list alone.
   var VIDEO_MODES = {
     auto: {},
@@ -35,6 +39,19 @@
     min2160: { minHeight: 2160 },
     best: { best: true },
     saver720: { maxHeight: 720 }
+  };
+  // Video codecs, recognised from Netflix's profile names
+  // (playready-h264hpl40-dash, hevc-dv5-main10-L41-dash-cenc-prk,
+  // av1-main-L40-dash-cbcs-prk, vp9-profile0-L40-dash-cenc...). The H.264
+  // Main and High profiles come first so a stream is named by the most
+  // precise one; "h264" accepts both.
+  var CODECS = {
+    h264main: /h264mpl|avcmain/,
+    h264high: /h264hpl|avchigh/,
+    h264: /h264|avc/,
+    hevc: /hevc|dvhe|hev1|dv5/,
+    av1: /^av1|av01/,
+    vp9: /^vp9/
   };
 
   var state = {
@@ -46,7 +63,8 @@
     lastPatchedAt: null,
     lastManifestAudio: null,
     lastManifestVideo: null,
-    titlesWithBadges: 0
+    titlesWithBadges: 0,
+    requestedVideo: null
   };
 
   // Mirrors the state into an attribute on <html> so the content script,
@@ -99,6 +117,29 @@
     var value = root && root.getAttribute(VIDEO_ATTR);
     if (value && Object.prototype.hasOwnProperty.call(VIDEO_MODES, value)) return value;
     return Object.prototype.hasOwnProperty.call(VIDEO_MODES, CONFIG.videoQuality) ? CONFIG.videoQuality : "auto";
+  }
+
+  // The codec chosen in the popup, "auto" by default. Own names only.
+  function codecMode() {
+    var root = document.documentElement;
+    var value = root && root.getAttribute(CODEC_ATTR);
+    if (value === "auto" || (value && Object.prototype.hasOwnProperty.call(CODECS, value))) return value;
+    return Object.prototype.hasOwnProperty.call(CODECS, CONFIG.videoCodec) ? CONFIG.videoCodec : "auto";
+  }
+
+  function codecOf(stream) {
+    var profile = String(firstKey(stream, PROFILE_KEYS) || "").toLowerCase();
+    for (var name in CODECS) {
+      if (Object.prototype.hasOwnProperty.call(CODECS, name) && CODECS[name].test(profile)) return name;
+    }
+    return null;
+  }
+
+  function dynamicRangeOf(stream) {
+    var profile = String(firstKey(stream, PROFILE_KEYS) || "").toLowerCase();
+    if (/dv5|dvhe|dolby/.test(profile)) return "dv";
+    if (/hdr|hlg/.test(profile)) return "hdr";
+    return null;
   }
 
   // Read at request time, so a change in the popup applies to the next title.
@@ -265,10 +306,82 @@
     return streams;
   }
 
-  // Records the video Netflix offers and applies the chosen mode by removing
-  // streams from the list the player picks from. Netflix's player itself is
-  // untouched: it just gets a shorter list.
-  function handleVideo(value, mode) {
+  // Netflix picks the codec on its servers from the profiles the request
+  // lists, and sends only that codec back. So the request keeps only the
+  // chosen codec's video profiles, when the browser listed any (Safari
+  // without an AV1 decoder doesn't, and the list is then left alone).
+  function isVideoProfile(name) {
+    if (typeof name !== "string" || AUDIO_PROFILE.test(name)) return false;
+    for (var codec in CODECS) {
+      if (Object.prototype.hasOwnProperty.call(CODECS, codec) && CODECS[codec].test(name.toLowerCase())) return true;
+    }
+    return false;
+  }
+
+  function isCodec(name, codec) {
+    return isVideoProfile(name) && CODECS[codec].test(name.toLowerCase());
+  }
+
+  // Browsers now list only H.264 High profiles. For Main, the same names
+  // with Main instead of High are added (playready-h264hpl40-dash gives
+  // playready-h264mpl40-dash), so the DRM and level parts stay right.
+  // Netflix also has a second family of H.264 Main encodes under these names
+  // (listed by the Kodi Netflix add-on); on some titles they have the
+  // higher bitrate. "Always the best" then picks across both.
+  var MAIN_PRK = ["h264mpl30-dash-playready-prk-qc", "h264mpl31-dash-playready-prk-qc",
+    "h264mpl40-dash-playready-prk-qc"];
+
+  function addMainProfiles(list) {
+    if (!list.some(function (name) { return isVideoProfile(name); })) return;
+    if (!list.some(function (name) { return isCodec(name, "h264main"); })) {
+      list.slice().forEach(function (name) {
+        if (!isCodec(name, "h264high")) return;
+        var main = name.replace("h264hpl", "h264mpl").replace("avchigh", "avcmain");
+        if (main !== name && list.indexOf(main) === -1) list.push(main);
+      });
+    }
+    if (!list.some(function (name) { return isCodec(name, "h264main"); })) return;
+    MAIN_PRK.forEach(function (name) {
+      if (list.indexOf(name) === -1) list.push(name);
+    });
+  }
+
+  function keepCodecProfiles(node, codec, depth) {
+    if (!node || typeof node !== "object" || depth > MAX_DEPTH) return 0;
+    var removed = 0, i;
+    if (Array.isArray(node)) {
+      for (i = 0; i < node.length; i++) removed += keepCodecProfiles(node[i], codec, depth + 1);
+      return removed;
+    }
+    var keys = Object.keys(node);
+    for (i = 0; i < keys.length; i++) {
+      var value = node[keys[i]];
+      if (keys[i] === "profiles" && Array.isArray(value)) {
+        if (codec === "h264main") addMainProfiles(value);
+        if (!value.some(function (name) { return isCodec(name, codec); })) continue;
+        var kept = value.filter(function (name) { return !isVideoProfile(name) || isCodec(name, codec); });
+        removed += value.length - kept.length;
+        replaceAll(value, kept);
+        state.requestedVideo = kept.filter(isVideoProfile);
+      } else if (value && typeof value === "object") {
+        removed += keepCodecProfiles(value, codec, depth + 1);
+      }
+    }
+    return removed;
+  }
+
+  // Keeps only the chosen codec's streams, if Netflix offered any.
+  function pickCodec(streams, codec) {
+    var same = streams.filter(function (s) {
+      return CODECS[codec].test(String(firstKey(s, PROFILE_KEYS) || "").toLowerCase());
+    });
+    return same.length ? same : streams;
+  }
+
+  // Records the video Netflix offers and applies the chosen mode and codec by
+  // removing streams from the list the player picks from. Netflix's player
+  // itself is untouched: it just gets a shorter list.
+  function handleVideo(value, mode, codec) {
     var tracks = findTracks(value, VIDEO_TRACK_KEYS, 0);
     if (!tracks) return false;
     var offered = [], kept = [], total = 0;
@@ -277,6 +390,7 @@
       if (!Array.isArray(streams) || !streams.length) continue;
       total += streams.length;
       Array.prototype.push.apply(offered, streams);
+      if (codec !== "auto" && streams.length > 1) replaceAll(streams, pickCodec(streams, codec));
       if (mode !== "auto" && streams.length > 1) replaceAll(streams, pickVideo(streams, mode));
       Array.prototype.push.apply(kept, streams);
     }
@@ -288,8 +402,17 @@
     });
     if (!best) return false;
     var heights = offered.map(height).filter(function (h) { return h !== null; });
+    var codecs = [];
+    offered.forEach(function (s) {
+      var c = codecOf(s);
+      if (c && codecs.indexOf(c) === -1) codecs.push(c);
+    });
     state.lastManifestVideo = {
       mode: mode,
+      codecChoice: codec,
+      codec: codecOf(best),
+      dynamicRange: dynamicRangeOf(best),
+      codecs: codecs,
       bitrate: rate(best),
       height: height(best),
       minHeight: heights.length ? Math.min.apply(null, heights) : null,
@@ -327,7 +450,7 @@
     var mode = videoMode();
     if (mode === "best") lockAudioBitrate(value);
     var audio = inspectAudio(value);
-    var video = handleVideo(value, mode);
+    var video = handleVideo(value, mode, codecMode());
     if (audio || video) publishStatus();
     return audio || video;
   }
@@ -527,6 +650,11 @@
           state.lastPatchedAt = new Date().toISOString();
           publishStatus();
           log("manifest request patched, added", added, "profile(s)", wanted);
+        }
+        var codec = codecMode();
+        if (codec !== "auto") {
+          var removed = keepCodecProfiles(value, codec, 0);
+          if (removed > 0) log("video profiles limited to", codec, "-", removed, "removed");
         }
       }
     } catch (err) {

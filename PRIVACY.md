@@ -7,11 +7,11 @@ tracking and no cookies.
 
 - They run only on `www.netflix.com` and send nothing anywhere. They add
   audio formats to the request Netflix's own player sends to Netflix, trim
-  the list of video streams if you picked a video quality, and add the
+  the list of video streams if you picked a video quality or codec, and add the
   Atmos, 5.1 and 4K badges to Netflix's title pages.
-- The extension stores two settings in your browser's extension storage:
-  your audio choice ("5.1 and Atmos" or "5.1 only") and your video quality
-  choice. They never leave your computer.
+- The extension stores three settings in your browser's extension storage:
+  your audio choice ("5.1 and Atmos" or "5.1 only"), your video quality
+  and your preferred codec. They never leave your computer.
 - "On this tab" in the popup reads the audio formats and the video quality
   Netflix sent for the current title, and the badges come from the title
   features Netflix already sends to the page. That information stays in

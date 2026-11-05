@@ -57,8 +57,12 @@ def run(
     extra="",
     video=None,
     built_video="auto",
+    codec=None,
+    built_codec="auto",
 ):
     attrs = {}
+    if codec is not None:
+        attrs["data-surroundflix-codec"] = codec
     if attr is not None:
         attrs["data-surroundflix-preset"] = attr
     if video is not None:
@@ -67,7 +71,9 @@ def run(
         "extra": extra,
         "attrs": json.dumps(attrs),
         "dolby": "true" if dolby else "false",
-        "script": render_page_script(preset, check_dolby=check_dolby, video_quality=built_video),
+        "script": render_page_script(
+            preset, check_dolby=check_dolby, video_quality=built_video, video_codec=built_codec
+        ),
     }
     proc = subprocess.run([node, "-e", code], capture_output=True, text=True, check=True)
     return json.loads(proc.stdout.strip().splitlines()[-1])
@@ -241,3 +247,143 @@ def test_video_without_sizes_or_bitrates_is_left_alone():
     out.kept = JSON.parse(JSON.stringify(m)).result.video_tracks[0].streams.length;
     """
     assert run(extra=extra, video="min720")["kept"] == 3
+
+
+MIXED = """
+    const manifest = {result: {video_tracks: [{streams: [
+      {content_profile: "av1-main-L40-dash-cbcs-prk", bitrate: 1800, res_h: 1080},
+      {content_profile: "av1-main-L30-dash-cbcs-prk", bitrate: 700, res_h: 720},
+      {content_profile: "playready-h264hpl40-dash", bitrate: 4300, res_h: 1080},
+      {content_profile: "hevc-dv5-main10-L51-dash-cenc-prk", bitrate: 10400, res_h: 2160},
+      {content_profile: "hevc-main10-L41-dash-cenc-prk", bitrate: 5000, res_h: 1080}]}]}};
+    const parsed = JSON.parse(JSON.stringify(manifest));
+    out.kept = parsed.result.video_tracks[0].streams.map(s => s.bitrate);
+    out.video = window.__surroundflix.lastManifestVideo;
+"""
+
+
+@pytest.mark.parametrize(
+    "codec,kept",
+    [
+        ("auto", [1800, 700, 4300, 10400, 5000]),
+        ("h264", [4300]),
+        ("av1", [1800, 700]),
+        ("hevc", [10400, 5000]),
+        ("vp9", [1800, 700, 4300, 10400, 5000]),  # not offered: Netflix's list stays
+    ],
+)
+def test_video_codecs(codec, kept):
+    out = run(extra=MIXED, codec=codec)
+    assert out["kept"] == kept
+    assert out["video"]["codecs"] == ["av1", "h264high", "hevc"]
+    assert out["video"]["codecChoice"] == codec
+
+
+def test_codec_and_quality_combine():
+    # HEVC first, then the 4K floor within it.
+    out = run(extra=MIXED, codec="hevc", video="min2160")
+    assert out["kept"] == [10400]
+    assert (out["video"]["codec"], out["video"]["dynamicRange"]) == ("hevc", "dv")
+
+
+def test_best_stream_codec_is_reported():
+    out = run(extra=MIXED, codec="h264")
+    assert (out["video"]["codec"], out["video"]["dynamicRange"]) == ("h264high", None)
+
+
+@pytest.mark.parametrize("value", ["", "x265", "constructor", "__proto__", "HEVC"])
+def test_unknown_codec_values_mean_automatic(value):
+    assert run(extra=MIXED, codec=value)["kept"] == [1800, 700, 4300, 10400, 5000]
+
+
+def test_userscript_build_sets_the_default_codec():
+    assert run(extra=MIXED, built_codec="h264")["kept"] == [4300]
+    assert run(extra=MIXED, built_codec="h264", codec="auto")["kept"] == [
+        1800,
+        700,
+        4300,
+        10400,
+        5000,
+    ]
+
+
+def test_unknown_built_codec_is_refused():
+    with pytest.raises(ValueError):
+        render_page_script(video_codec="x265")
+
+
+REQUEST = """
+    const req = {version: 2, url: "licensedManifest", params: {profiles: [
+      "heaac-2-dash", "playready-h264mpl40-dash", "playready-h264hpl40-dash",
+      "vp9-profile0-L40-dash-cenc", "av1-main-L40-dash-cbcs-prk", "webvtt-lssdh-ios8"]}};
+    out.request = JSON.parse(JSON.stringify(req)).params.profiles;
+    const groups = {params: {profileGroups: [{name: "audio", profiles: ["heaac-2-dash"]},
+      {name: "video", profiles: ["hevc-main10-L41-dash-cenc-prk", "playready-h264hpl40-dash"]}]}};
+    out.groups = JSON.parse(JSON.stringify(groups)).params.profileGroups[1].profiles;
+"""
+
+
+def test_request_lists_only_the_chosen_codec():
+    out = run(extra=REQUEST, codec="h264", check_dolby=True, dolby=False)
+    assert out["request"] == [
+        "heaac-2-dash",
+        "playready-h264mpl40-dash",
+        "playready-h264hpl40-dash",
+        "webvtt-lssdh-ios8",
+        *NO_DOLBY_PROFILES,
+    ]
+    assert out["groups"] == ["playready-h264hpl40-dash"]
+
+
+def test_request_without_the_chosen_codec_is_left_alone():
+    # Safari without an AV1 decoder never lists AV1: nothing is removed.
+    out = run(extra=REQUEST, codec="hevc")
+    assert "av1-main-L40-dash-cbcs-prk" in out["request"]
+    assert out["groups"] == ["hevc-main10-L41-dash-cenc-prk"]
+
+
+def test_automatic_codec_keeps_the_request():
+    out = run(extra=REQUEST)
+    assert "vp9-profile0-L40-dash-cenc" in out["request"]
+    assert "av1-main-L40-dash-cbcs-prk" in out["request"]
+
+
+def test_h264_profiles_can_be_chosen():
+    main = run(extra=REQUEST, codec="h264main")["request"]
+    assert "playready-h264mpl40-dash" in main and "playready-h264hpl40-dash" not in main
+    high = run(extra=REQUEST, codec="h264high")["request"]
+    assert "playready-h264hpl40-dash" in high and "playready-h264mpl40-dash" not in high
+    assert "av1-main-L40-dash-cbcs-prk" not in main + high
+
+
+def test_h264_main_stream_is_named():
+    extra = """
+    const m = {result: {video_tracks: [{streams: [
+      {content_profile: "playready-h264mpl40-dash", bitrate: 5200, res_h: 1080},
+      {content_profile: "playready-h264hpl40-dash", bitrate: 4300, res_h: 1080}]}]}};
+    out.kept = JSON.parse(JSON.stringify(m)).result.video_tracks[0].streams.map(s => s.bitrate);
+    out.video = window.__surroundflix.lastManifestVideo;
+    """
+    out = run(extra=extra, codec="h264main")
+    assert out["kept"] == [5200]
+    assert out["video"]["codec"] == "h264main"
+    assert run(extra=extra, codec="h264")["kept"] == [5200, 4300]
+
+
+def test_h264_main_is_added_when_the_browser_lists_only_high():
+    extra = """
+    const req = {params: {profiles: ["heaac-2-dash", "playready-h264hpl30-dash",
+      "playready-h264hpl40-dash", "av1-main-L40-dash-cbcs-prk"]}};
+    out.request = JSON.parse(JSON.stringify(req)).params.profiles;
+    out.requestedVideo = window.__surroundflix.requestedVideo;
+    """
+    out = run(extra=extra, codec="h264main")
+    assert out["requestedVideo"] == [
+        "playready-h264mpl30-dash",
+        "playready-h264mpl40-dash",
+        "h264mpl30-dash-playready-prk-qc",
+        "h264mpl31-dash-playready-prk-qc",
+        "h264mpl40-dash-playready-prk-qc",
+    ]
+    assert "playready-h264hpl40-dash" not in out["request"]
+    assert "av1-main-L40-dash-cbcs-prk" not in out["request"]

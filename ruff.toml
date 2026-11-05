@@ -30,6 +30,8 @@ max-complexity = 15
 # arguments and no shell; Bandit gets the same exception inline (# nosec).
 "src/surroundflix/build.py" = ["S603", "S607"]
 "src/surroundflix/package.py" = ["S603", "S607"]
+# Runs git by name with fixed arguments and no shell.
+"scripts/release.py" = ["S603", "S607"]
 
 [lint.isort]
 known-first-party = ["surroundflix"]

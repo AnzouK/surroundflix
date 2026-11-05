@@ -4,7 +4,8 @@
 # On a version tag (v1.0.0...): checks that the tag matches the code's
 # version, builds Surroundflix.dmg on a macOS runner plus the userscript
 # and the Chrome zip, writes SHA256SUMS.txt, and publishes the GitHub
-# release with the version's CHANGELOG section as notes.
+# release with the version's CHANGELOG section and the install guide
+# (.github/release-install.md) as notes.
 #
 # On public repositories, each file also gets a signed build provenance
 # attestation: `gh attestation verify <file> --repo AnzouK/surroundflix`
@@ -52,6 +53,8 @@ jobs:
 
       - name: Release notes from the CHANGELOG
         run: |
+          grep -Eq "^## \[$VERSION\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md || {
+            echo "CHANGELOG section $VERSION has no date: use python3 scripts/release.py"; exit 1; }
           awk -v v="$VERSION" '
             $0 ~ "^## \\[" v "\\]" { on = 1; next }
             on && /^## \[/ { exit }
@@ -59,6 +62,8 @@ jobs:
           ' CHANGELOG.md > notes.md
           test -s notes.md || { echo "no CHANGELOG section for $VERSION"; exit 1; }
           {
+            echo
+            cat .github/release-install.md
             echo
             echo "Check a download with \`shasum -a 256 -c SHA256SUMS.txt\`."
           } >> notes.md

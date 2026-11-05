@@ -2,10 +2,13 @@ import json
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
 from surroundflix.build import load_i18n, shared_js
+
+TEMPLATES = Path(__file__).resolve().parent.parent / "src" / "surroundflix" / "templates"
 
 I18N = load_i18n()
 EN = I18N["strings"]["en"]
@@ -112,6 +115,22 @@ def test_best_audio(received, expected):
         ({"height": 1080, "bitrate": 5800}, "en", "1080p \u00b7 5.8 Mb/s"),
         ({"height": 2160, "bitrate": 15250}, "fr", "2160p \u00b7 15,3 Mb/s"),
         ({"bitrate": 3000}, "en", "3 Mb/s"),
+        (
+            {"height": 2160, "bitrate": 10400, "codec": "hevc", "dynamicRange": "dv"},
+            "en",
+            "2160p \u00b7 HEVC Dolby Vision \u00b7 10.4 Mb/s",
+        ),
+        (
+            {"height": 1080, "bitrate": 1811, "codec": "av1"},
+            "en",
+            "1080p \u00b7 AV1 \u00b7 1.8 Mb/s",
+        ),
+        # Unknown names from the page are dropped, never shown.
+        (
+            {"height": 720, "bitrate": 900, "codec": "<b>", "dynamicRange": "x"},
+            "en",
+            "720p \u00b7 0.9 Mb/s",
+        ),
         ({"height": 1080, "bitrate": "5800"}, "en", ""),
         (None, "en", ""),
     ],
@@ -125,3 +144,17 @@ def test_format_video(video, lang, expected):
         ["node", "-e", code], capture_output=True, text=True, check=True
     ).stdout.strip()
     assert json.loads(out) == expected
+
+
+def test_every_popup_option_has_an_explanation():
+    """The line under each menu explains the chosen option, in every language."""
+    html = (TEMPLATES / "popup.html").read_text()
+    keys = ["pdesc_" + v for v in re.findall(r'name="preset" value="(\w+)"', html)]
+    for select, prefix in (("video-quality", "qdesc_"), ("video-codec", "cdesc_")):
+        block = re.search(rf'<select id="{select}".*?</select>', html, re.S).group(0)
+        keys += [prefix + v for v in re.findall(r'<option value="(\w+)"', block)]
+    assert len(keys) > 10
+    strings = load_i18n()["strings"]
+    for lang, table in strings.items():
+        missing = [k for k in keys + ["codec_hint"] if not table.get(k)]
+        assert not missing, (lang, missing)

@@ -1,5 +1,5 @@
 name: Bug report
-description: Surroundflix doesn't give you 5.1 / Atmos, or breaks playback.
+description: No 5.1 / Atmos, a video quality or codec choice that isn't applied, missing badges, or broken playback.
 labels: ["bug"]
 body:
   - type: markdown
@@ -33,7 +33,7 @@ body:
     attributes:
       label: Versions
       description: Surroundflix, macOS and browser versions.
-      placeholder: Surroundflix 0.1.0, macOS 26.1, Safari 27.2
+      placeholder: Surroundflix 1.0.0, macOS 26.1, Safari 27.2
     validations:
       required: true
 

@@ -35,9 +35,10 @@ Please don't open a public issue for an unpatched problem.
 
 - The extension asks for one permission, `storage`, and runs only on
   `www.netflix.com`. It contacts no server.
-- Data read from the page (the chosen preset, Netflix's audio list) is
-  treated as untrusted: only known values are used, and text is always
-  inserted with `textContent`, never as HTML.
+- Data read from the page (the popup's choices passed through `<html>`
+  attributes, Netflix's audio and video lists, title features) is treated
+  as untrusted: only known values are used, and text is always inserted
+  with `textContent`, never as HTML.
 - The app only contacts `api.github.com` for updates, and only links to
   this repository's releases.
 - `tests/test_security.py` checks all of the above on every push, and

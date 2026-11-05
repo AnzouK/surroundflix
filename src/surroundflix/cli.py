@@ -9,7 +9,14 @@ from pathlib import Path
 
 from . import __version__, playercore
 from . import build as builder
-from .profiles import DEFAULT_PRESET, DEFAULT_VIDEO_MODE, PRESETS, VIDEO_MODES
+from .profiles import (
+    DEFAULT_PRESET,
+    DEFAULT_VIDEO_CODEC,
+    DEFAULT_VIDEO_MODE,
+    PRESETS,
+    VIDEO_CODECS,
+    VIDEO_MODES,
+)
 
 
 def _cmd_presets(args: argparse.Namespace) -> int:
@@ -21,7 +28,11 @@ def _cmd_presets(args: argparse.Namespace) -> int:
 
 def _cmd_build(args: argparse.Namespace) -> int:
     result = builder.build(
-        Path(args.out), preset=args.preset, debug=args.debug, video_quality=args.video_quality
+        Path(args.out),
+        preset=args.preset,
+        debug=args.debug,
+        video_quality=args.video_quality,
+        video_codec=args.video_codec,
     )
     print(f"Userscript:          {result.userscript}")
     print(f"Safari WebExtension: {result.webextension}")
@@ -110,6 +121,12 @@ def build_parser() -> argparse.ArgumentParser:
             default=DEFAULT_VIDEO_MODE,
             choices=VIDEO_MODES,
             help="userscript only: video mode (the extensions have a menu in their popup)",
+        )
+        sp.add_argument(
+            "--video-codec",
+            default=DEFAULT_VIDEO_CODEC,
+            choices=VIDEO_CODECS,
+            help="userscript only: preferred video codec, when Netflix offers it",
         )
         sp.add_argument("--out", default="dist", help="output folder (default: dist)")
 
