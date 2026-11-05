@@ -19,6 +19,8 @@ def test_build_outputs(tmp_path):
     assert "@run-at       document-start" in us
     assert "@inject-into  page" in us
     assert "__SURROUNDFLIX_CONFIG__" not in us
+    assert "@updateURL    https://github.com/AnzouK/surroundflix/releases/latest/download/surroundflix.user.js" in us
+    assert "@downloadURL" in us
 
     for ext in (result.webextension, result.chrome):
         manifest = json.loads((ext / "manifest.json").read_text())

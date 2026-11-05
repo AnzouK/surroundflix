@@ -24,6 +24,52 @@ var CHECK_DOLBY = /*__SURROUNDFLIX_CHECK_DOLBY__*/ false;
     });
   }
 
+  var lang = pickLang(navigator.languages || [navigator.language]);
+  var out = document.getElementById("tab-status");
+
+  function showStatus(reply) {
+    out.textContent = "";
+    if (!reply || !reply.active) {
+      out.textContent = t(lang, "tab_none");
+      return;
+    }
+    var received = reply.status && reply.status.received;
+    if (!received) {
+      out.textContent = t(lang, "tab_waiting");
+      return;
+    }
+    var best = bestAudio(received);
+    if (!best) {
+      out.textContent = t(lang, "tab_stereo");
+      return;
+    }
+    var parts = t(lang, "tab_best", { format: "\u0000" }).split("\u0000");
+    var strong = document.createElement("strong");
+    strong.textContent = best;
+    out.appendChild(document.createTextNode(parts[0]));
+    out.appendChild(strong);
+    out.appendChild(document.createTextNode(parts[1] || ""));
+  }
+
+  // Preview in a normal browser: popup.html?demo=atmos|stereo|waiting|none
+  var demo = new URLSearchParams(location.search).get("demo");
+  if (demo) {
+    showStatus({
+      atmos: { active: true, status: { received: ["ddplus-atmos-dash", "ddplus-5.1-dash", "heaac-2-dash"] } },
+      stereo: { active: true, status: { received: ["heaac-2-dash"] } },
+      waiting: { active: true, status: { received: null } }
+    }[demo] || null);
+  } else {
+    try {
+      Promise.resolve(api.tabs.query({ active: true, currentWindow: true })).then(function (tabs) {
+        if (!tabs || !tabs[0]) return null;
+        return api.tabs.sendMessage(tabs[0].id, { type: "surroundflix-status" });
+      }).then(showStatus, function () { showStatus(null); });
+    } catch (err) {
+      showStatus(null);
+    }
+  }
+
   // Without Dolby support (Chrome), the preset has no effect: page.js asks
   // for AAC 5.1 instead.
   var dolby = !CHECK_DOLBY;

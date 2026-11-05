@@ -22,5 +22,12 @@ label { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; cursor: 
 fieldset:disabled label { cursor: default; opacity: .55; }
 .note { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
 .warn { color: var(--text); border-left: 2px solid var(--accent); padding-left: 8px; }
+.tab { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.tab h2 {
+  margin: 0 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600;
+}
+.tab p { margin: 0; }
+.tab strong { color: var(--accent); font-weight: 600; }
 ::selection { background: var(--accent); color: var(--bg); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

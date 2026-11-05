@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: How Surroundflix works and its limits
+    url: https://github.com/AnzouK/surroundflix#what-you-get
+    about: Atmos plays as 5.1 in Safari, and Chrome has no Dolby decoder. Check this before reporting.

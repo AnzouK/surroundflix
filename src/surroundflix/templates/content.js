@@ -28,6 +28,18 @@
     // Storage unavailable: page.js falls back to the default preset.
   }
 
+  // The popup asks for the status page.js mirrors on <html>.
+  try {
+    api.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+      if (!message || message.type !== "surroundflix-status") return false;
+      var raw = root.getAttribute("data-surroundflix-status");
+      var status = null;
+      try { status = raw ? JSON.parse(raw) : null; } catch (err) {}
+      sendResponse({ active: !!raw, status: status });
+      return false;
+    });
+  } catch (err) {}
+
   if (INJECT) {
     var script = document.createElement("script");
     script.src = api.runtime.getURL("page.js");

@@ -66,7 +66,8 @@ Requires macOS with Safari 16.4 or later.
 
 The app window shows whether the extension is on, checks for updates, and
 is available in English, French and Portuguese. The Surroundflix button in Safari's toolbar lets you choose
-between **5.1 and Atmos** (default) and **5.1 only**.
+between **5.1 and Atmos** (default) and **5.1 only**, and shows under
+"On this tab" the best audio Netflix actually sent for the current title.
 
 <p align="center">
   <picture>
@@ -86,7 +87,8 @@ between **5.1 and Atmos** (default) and **5.1 only**.
 2. Open `surroundflix.user.js` (in the release, or inside the .dmg) with Userscripts.
 3. Allow it on netflix.com and reload Netflix.
 
-The userscript is for Safari only and always asks for 5.1 and Atmos; it
+Userscripts updates it automatically when a new release is out. The
+userscript is for Safari only and always asks for 5.1 and Atmos; it
 has no toolbar button. In Chrome, use the Chrome extension below.
 
 ### Chrome (experimental)
@@ -146,9 +148,11 @@ surroundflix build --preset surround   # 5.1 only, no Atmos request
 surroundflix dmg                # Surroundflix.app + .dmg in release/
 ```
 
-With a `--debug` build, type `__surroundflix` in the Web Inspector console
-on Netflix: `lastManifestAudio` shows which audio formats Netflix actually
-sent back. Include it when you open an issue.
+Type `__surroundflix` in the Web Inspector console on Netflix:
+`lastManifestAudio` shows which audio formats Netflix actually sent back.
+A `--debug` build also logs each step to the console. The
+[bug report form](https://github.com/AnzouK/surroundflix/issues/new?template=bug_report.yml)
+asks for that output.
 
 Open `dist/app/Main.html` in a browser to preview the app window; add
 `?state=on&lang=pt-AO&theme=dark` to try other states, languages and themes.

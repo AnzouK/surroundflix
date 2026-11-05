@@ -37,6 +37,20 @@
     lastManifestAudio: null
   };
 
+  // Mirrors the state into an attribute on <html> so the content script,
+  // and through it the popup, can read it from its isolated world.
+  var STATUS_ATTR = "data-surroundflix-status";
+  function publishStatus() {
+    var root = document.documentElement;
+    if (!root || !root.setAttribute) return;
+    root.setAttribute(STATUS_ATTR, nativeStringify({
+      preset: state.preset,
+      requested: state.requested,
+      received: state.lastManifestAudio,
+      patchedRequests: state.patchedRequests
+    }));
+  }
+
   function log() {
     if (!CONFIG.debug) return;
     var args = Array.prototype.slice.call(arguments);
@@ -134,6 +148,7 @@
       }
     }
     state.lastManifestAudio = seen;
+    publishStatus();
     log("audio profiles returned by Netflix:", seen);
   }
 
@@ -149,6 +164,7 @@
           state.requested = wanted.slice();
           state.patchedRequests++;
           state.lastPatchedAt = new Date().toISOString();
+          publishStatus();
           log("manifest request patched, added", added, "profile(s)", wanted);
         }
       }
@@ -179,5 +195,6 @@
   JSON.parse = parse;
 
   Object.defineProperty(window, "__surroundflix", { value: state, configurable: false });
+  publishStatus();
   log("active, default preset", CONFIG.preset);
 })();

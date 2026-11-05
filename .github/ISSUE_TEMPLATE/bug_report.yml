@@ -1,0 +1,71 @@
+name: Bug report
+description: Surroundflix doesn't give you 5.1 / Atmos, or breaks playback.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The details below let us tell a Netflix change
+        from a setup issue, so please fill in as much as you can.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you expected, and what you got instead.
+      placeholder: The audio menu only shows "English", no 5.1 or Atmos track.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you use Surroundflix?
+      options:
+        - Safari app (Surroundflix.dmg)
+        - Safari userscript
+        - Chrome extension
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Surroundflix, macOS and browser versions.
+      placeholder: Surroundflix 0.1.0, macOS 26.1, Safari 27.2
+    validations:
+      required: true
+
+  - type: input
+    id: title
+    attributes:
+      label: Netflix title tested
+      description: A title that has 5.1 or Atmos audio, and its country if you know it.
+      placeholder: The Witcher - Sirens of the Deep (France)
+    validations:
+      required: true
+
+  - type: textarea
+    id: popup
+    attributes:
+      label: What does the toolbar popup say under "On this tab"?
+      description: Skip this if you use the userscript.
+
+  - type: textarea
+    id: state
+    attributes:
+      label: Output of __surroundflix
+      description: |
+        Start the title, open the browser console on netflix.com
+        (Safari: Develop > Show Web Inspector > Console), type
+        `__surroundflix` and paste the result.
+      render: json
+
+  - type: textarea
+    id: debug
+    attributes:
+      label: Netflix stats
+      description: |
+        Optional. Press Ctrl+Option+Shift+D during playback and paste the
+        "Audio Track" line, or attach a screenshot.

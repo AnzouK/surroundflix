@@ -24,6 +24,8 @@ NETFLIX_MATCH = "https://www.netflix.com/*"
 # Change this once, here, if the repository moves.
 REPO = "AnzouK/surroundflix"
 HOMEPAGE = f"https://github.com/{REPO}"
+# Userscript managers check this file for a newer @version.
+USERSCRIPT_URL = f"{HOMEPAGE}/releases/latest/download/surroundflix.user.js"
 ICON_SIZES = (48, 96, 128, 256, 512, 1024)
 
 
@@ -81,6 +83,8 @@ def render_userscript(preset: str = DEFAULT_PRESET, debug: bool = False) -> str:
             f"// @version      {__version__}",
             "// @description  Ask Netflix for 5.1 / Atmos audio in Safari (Spatial Audio friendly)",
             f"// @homepageURL  {HOMEPAGE}",
+            f"// @updateURL    {USERSCRIPT_URL}",
+            f"// @downloadURL  {USERSCRIPT_URL}",
             f"// @match        {NETFLIX_MATCH}",
             "// @run-at       document-start",
             "// @inject-into  page",

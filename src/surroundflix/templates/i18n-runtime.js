@@ -47,6 +47,23 @@ function t(lang, key, vars) {
   return text;
 }
 
+// Netflix audio profile names, best first, with the label shown to users.
+var AUDIO_FORMATS = [
+  ["ddplus-atmos-dash", "Dolby Atmos"],
+  ["ddplus-5.1hq-dash", "Dolby Digital Plus 5.1 (HQ)"],
+  ["ddplus-5.1-dash", "Dolby Digital Plus 5.1"],
+  ["heaac-5.1-dash", "AAC 5.1"]
+];
+
+// Returns the label of the best multichannel format in a list of profiles,
+// or null when Netflix only sent stereo.
+function bestAudio(profiles) {
+  for (var i = 0; i < AUDIO_FORMATS.length; i++) {
+    if ((profiles || []).indexOf(AUDIO_FORMATS[i][0]) !== -1) return AUDIO_FORMATS[i][1];
+  }
+  return null;
+}
+
 function applyI18n(doc, lang) {
   doc.documentElement.lang = lang;
   var nodes = doc.querySelectorAll("[data-i18n]");

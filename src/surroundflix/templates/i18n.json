@@ -36,7 +36,12 @@
       "preset_atmos": "5.1 and Atmos (recommended)",
       "preset_surround": "5.1 only, if Atmos titles fail to play",
       "apply_hint": "Takes effect the next time you start a title.",
-      "no_dolby": "This browser can't play Dolby audio, so Surroundflix asks for AAC 5.1 instead when the title has it."
+      "no_dolby": "This browser can't play Dolby audio, so Surroundflix asks for AAC 5.1 instead when the title has it.",
+      "tab_heading": "On this tab",
+      "tab_none": "Open Netflix to see which audio it sends.",
+      "tab_waiting": "Surroundflix is active. Start a title to see which audio Netflix sends.",
+      "tab_best": "Best audio Netflix sent: {format}",
+      "tab_stereo": "Netflix only sent stereo for this title."
     },
     "fr": {
       "status_checking": "Vérification de Safari…",
@@ -62,7 +67,12 @@
       "preset_atmos": "5.1 et Atmos (recommandé)",
       "preset_surround": "5.1 seulement, si les titres Atmos ne se lancent pas",
       "apply_hint": "Prend effet au prochain titre que vous lancez.",
-      "no_dolby": "Ce navigateur ne lit pas le son Dolby : Surroundflix demande alors le 5.1 en AAC, quand le titre le propose."
+      "no_dolby": "Ce navigateur ne lit pas le son Dolby : Surroundflix demande alors le 5.1 en AAC, quand le titre le propose.",
+      "tab_heading": "Sur cet onglet",
+      "tab_none": "Ouvrez Netflix pour voir quel son il envoie.",
+      "tab_waiting": "Surroundflix est actif. Lancez un titre pour voir quel son Netflix envoie.",
+      "tab_best": "Meilleur son envoyé par Netflix : {format}",
+      "tab_stereo": "Netflix n'a envoyé que de la stéréo pour ce titre."
     },
     "pt-PT": {
       "status_checking": "A verificar o Safari…",
@@ -88,7 +98,12 @@
       "preset_atmos": "5.1 e Atmos (recomendado)",
       "preset_surround": "Só 5.1, se os títulos Atmos não forem reproduzidos",
       "apply_hint": "Aplica-se no próximo título que iniciar.",
-      "no_dolby": "Este navegador não reproduz áudio Dolby, por isso o Surroundflix pede o 5.1 em AAC quando o título o tem."
+      "no_dolby": "Este navegador não reproduz áudio Dolby, por isso o Surroundflix pede o 5.1 em AAC quando o título o tem.",
+      "tab_heading": "Neste separador",
+      "tab_none": "Abra a Netflix para ver que áudio envia.",
+      "tab_waiting": "O Surroundflix está ativo. Inicie um título para ver que áudio a Netflix envia.",
+      "tab_best": "Melhor áudio enviado pela Netflix: {format}",
+      "tab_stereo": "A Netflix só enviou estéreo para este título."
     },
     "pt-BR": {
       "status_checking": "Verificando o Safari…",
@@ -114,7 +129,12 @@
       "preset_atmos": "5.1 e Atmos (recomendado)",
       "preset_surround": "Só 5.1, se os títulos em Atmos não tocarem",
       "apply_hint": "Vale a partir do próximo título que você abrir.",
-      "no_dolby": "Este navegador não toca áudio Dolby, então o Surroundflix pede o 5.1 em AAC quando o título tiver."
+      "no_dolby": "Este navegador não toca áudio Dolby, então o Surroundflix pede o 5.1 em AAC quando o título tiver.",
+      "tab_heading": "Nesta aba",
+      "tab_none": "Abra a Netflix para ver qual áudio ela envia.",
+      "tab_waiting": "O Surroundflix está ativo. Abra um título para ver qual áudio a Netflix envia.",
+      "tab_best": "Melhor áudio enviado pela Netflix: {format}",
+      "tab_stereo": "A Netflix só enviou estéreo para este título."
     },
     "pt-AO": {
       "status_checking": "A verificar o Safari…",
@@ -140,7 +160,12 @@
       "preset_atmos": "5.1 e Atmos (recomendado)",
       "preset_surround": "Só 5.1, se os títulos Atmos não tocarem",
       "apply_hint": "Vale a partir do próximo título que puser a tocar.",
-      "no_dolby": "Este navegador não toca áudio Dolby, por isso o Surroundflix pede o 5.1 em AAC quando o título o tem."
+      "no_dolby": "Este navegador não toca áudio Dolby, por isso o Surroundflix pede o 5.1 em AAC quando o título o tem.",
+      "tab_heading": "Neste separador",
+      "tab_none": "Abra a Netflix para ver que áudio envia.",
+      "tab_waiting": "O Surroundflix está activo. Ponha um título a tocar para ver que áudio a Netflix envia.",
+      "tab_best": "Melhor áudio enviado pela Netflix: {format}",
+      "tab_stereo": "A Netflix só enviou estéreo para este título."
     }
   }
 }

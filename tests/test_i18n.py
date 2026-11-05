@@ -78,3 +78,20 @@ def test_pick_lang(prefs, expected):
     code = _i18n_runtime() + f"\nconsole.log(pickLang({json.dumps(prefs)}));"
     out = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True).stdout.strip()
     assert out == expected
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+@pytest.mark.parametrize(
+    "received,expected",
+    [
+        (["heaac-2-dash", "ddplus-5.1-dash", "ddplus-atmos-dash"], "Dolby Atmos"),
+        (["ddplus-5.1-dash", "ddplus-5.1hq-dash"], "Dolby Digital Plus 5.1 (HQ)"),
+        (["heaac-2-dash", "heaac-5.1-dash"], "AAC 5.1"),
+        (["heaac-2-dash", "ddplus-2.0-dash"], None),
+        ([], None),
+    ],
+)
+def test_best_audio(received, expected):
+    code = _i18n_runtime() + f"\nconsole.log(JSON.stringify(bestAudio({json.dumps(received)})));"
+    out = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True).stdout.strip()
+    assert json.loads(out) == expected

@@ -16,7 +16,10 @@ pytestmark = pytest.mark.skipif(node is None, reason="node is not installed")
 HARNESS = r"""
 globalThis.window = globalThis;
 const ATTR = %(attr)s;
-globalThis.document = { documentElement: { getAttribute: () => ATTR } };
+globalThis.__attrs = {};
+globalThis.document = { documentElement: {
+  getAttribute: () => ATTR,
+  setAttribute: (k, v) => { globalThis.__attrs[k] = v; } } };
 globalThis.MediaSource = { isTypeSupported: (t) => %(dolby)s && t.includes("ec-3") };
 %(script)s
 const out = {};
@@ -38,6 +41,7 @@ JSON.parse(JSON.stringify({result: {audio_tracks: [
   {streams: [{content_profile: "ddplus-5.1-dash"}, {content_profile: "heaac-2-dash"}]}]}}));
 out.state = window.__surroundflix;
 out.native = JSON.stringify.toString().includes("native code");
+out.status = JSON.parse(globalThis.__attrs["data-surroundflix-status"]);
 console.log(JSON.stringify(out));
 """
 
@@ -109,3 +113,10 @@ def test_chrome_without_dolby_asks_for_aac():
 
 def test_chrome_with_dolby_keeps_dolby():
     assert "ddplus-atmos-dash" in run(dolby=True, check_dolby=True)["flat"]
+
+
+def test_status_is_mirrored_on_html():
+    status = run()["status"]
+    assert status["received"] == ["ddplus-5.1-dash", "heaac-2-dash"]
+    assert status["patchedRequests"] == 2
+    assert "ddplus-atmos-dash" in status["requested"]
