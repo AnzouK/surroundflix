@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "surroundflix"
-version = "0.1.0"
-description = "Get Netflix's Dolby 5.1 and Atmos audio in Safari on macOS, with Spatial Audio on AirPods; experimental AAC 5.1 in Chrome."
+version = "1.0.0"
+description = "Netflix's Dolby 5.1 and Atmos audio in Safari on macOS, with Spatial Audio on AirPods, plus video quality and codec choice."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "AGPL-3.0-only"
@@ -13,11 +13,17 @@ license-files = ["LICENSE"]
 authors = [{ name = "AnzouK" }]
 keywords = ["netflix", "safari", "chrome", "dolby", "atmos", "spatial-audio", "macos", "userscript"]
 classifiers = [
+    "Development Status :: 5 - Production/Stable",
     "Programming Language :: Python :: 3",
     "Operating System :: MacOS",
     "Environment :: Console",
 ]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/AnzouK/surroundflix"
+Changelog = "https://github.com/AnzouK/surroundflix/blob/main/CHANGELOG.md"
+Issues = "https://github.com/AnzouK/surroundflix/issues"
 
 [project.optional-dependencies]
 dev = ["pytest>=7", "pytest-cov>=5", "pyyaml>=6", "ruff==0.17.3"]

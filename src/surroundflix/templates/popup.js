@@ -1,8 +1,9 @@
-/* Surroundflix popup: the audio preset and the video quality mode, saved in
+/* Surroundflix popup: the audio preset, the video quality and codec, saved in
  * extension storage, and what Netflix sent for the current tab. */
 var DEFAULT_PRESET = /*__SURROUNDFLIX_DEFAULT_PRESET__*/ "atmos";
 var CHECK_DOLBY = /*__SURROUNDFLIX_CHECK_DOLBY__*/ false;
 var DEFAULT_VIDEO_QUALITY = /*__SURROUNDFLIX_DEFAULT_VIDEO_QUALITY__*/ "auto";
+var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
 
 (function () {
   "use strict";
@@ -16,25 +17,79 @@ var DEFAULT_VIDEO_QUALITY = /*__SURROUNDFLIX_DEFAULT_VIDEO_QUALITY__*/ "auto";
   }
 
   var videoQuality = document.getElementById("video-quality");
+  var videoCodec = document.getElementById("video-codec");
+
+  // Codecs Netflix never sends to this browser are left out: HEVC is
+  // Safari only, VP9 Chrome only.
+  // So are codecs this Mac or browser can't decode (AV1 in Safari needs a
+  // chip with an AV1 decoder).
+  var browserName = CHECK_DOLBY ? "chrome" : "safari";
+  var CODEC_TYPES = {
+    h264: 'video/mp4; codecs="avc1.640028"',
+    h264main: 'video/mp4; codecs="avc1.4d4028"',
+    h264high: 'video/mp4; codecs="avc1.640028"',
+    hevc: 'video/mp4; codecs="hvc1.2.4.L153.B0"',
+    av1: 'video/mp4; codecs="av01.0.08M.08"',
+    vp9: 'video/mp4; codecs="vp09.00.40.08"'
+  };
+  function decodes(codec) {
+    try {
+      return !window.MediaSource || !CODEC_TYPES[codec] || window.MediaSource.isTypeSupported(CODEC_TYPES[codec]);
+    } catch (err) {
+      return true;
+    }
+  }
+  var codecOptions = videoCodec.querySelectorAll("option");
+  for (var c = 0; c < codecOptions.length; c++) {
+    var only = codecOptions[c].getAttribute("data-browser");
+    if ((only && only !== browserName) || !decodes(codecOptions[c].value)) codecOptions[c].remove();
+  }
 
   select(DEFAULT_PRESET);
   videoQuality.value = DEFAULT_VIDEO_QUALITY;
-  Promise.resolve(api.storage.local.get(["preset", "videoQuality"])).then(function (stored) {
+  videoCodec.value = DEFAULT_VIDEO_CODEC;
+  Promise.resolve(api.storage.local.get(["preset", "videoQuality", "videoCodec"])).then(function (stored) {
     if (stored && stored.preset) select(stored.preset);
     if (stored && typeof stored.videoQuality === "string") videoQuality.value = stored.videoQuality;
     if (!videoQuality.value) videoQuality.value = DEFAULT_VIDEO_QUALITY; // unknown stored value
+    if (stored && typeof stored.videoCodec === "string") videoCodec.value = stored.videoCodec;
+    if (!videoCodec.value) videoCodec.value = DEFAULT_VIDEO_CODEC;
+    describeAll();
   }, function () { /* storage unavailable: keep the defaults shown above */ });
 
   for (var i = 0; i < radios.length; i++) {
     radios[i].addEventListener("change", function (event) {
       api.storage.local.set({ preset: event.target.value });
+      describeAll();
     });
   }
   videoQuality.addEventListener("change", function () {
     api.storage.local.set({ videoQuality: videoQuality.value });
+    describeAll();
+  });
+  videoCodec.addEventListener("change", function () {
+    api.storage.local.set({ videoCodec: videoCodec.value });
+    describeAll();
   });
 
   var lang = pickLang(navigator.languages || [navigator.language]);
+
+  // One line under each menu explains the option currently chosen.
+  function describe(id, key, extra) {
+    var node = document.getElementById(id);
+    var text = t(lang, key);
+    if (extra) text += " " + t(lang, extra);
+    node.textContent = text;
+  }
+
+  function describeAll() {
+    var preset = document.querySelector('input[name="preset"]:checked');
+    describe("preset-desc", "pdesc_" + (preset && preset.value === "surround" ? "surround" : "atmos"));
+    describe("video-quality-desc", "qdesc_" + (videoQuality.value || "auto"));
+    var codec = videoCodec.value || "auto";
+    describe("video-codec-desc", "cdesc_" + codec, codec === "auto" ? "" : "codec_hint");
+  }
+
   var out = document.getElementById("tab-status");
   var videoOut = document.getElementById("tab-video");
   var rangeOut = document.getElementById("tab-range");
@@ -94,7 +149,8 @@ var DEFAULT_VIDEO_QUALITY = /*__SURROUNDFLIX_DEFAULT_VIDEO_QUALITY__*/ "auto";
   if (demo) {
     showStatus({
       atmos: { active: true, status: { received: ["ddplus-atmos-dash", "ddplus-5.1-dash", "heaac-2-dash"],
-        video: { mode: "auto", height: 1080, bitrate: 5800, minHeight: 270, maxHeight: 1080 } } },
+        video: { mode: "auto", height: 2160, bitrate: 10400, codec: "hevc", dynamicRange: "dv",
+          codecs: ["hevc", "av1", "h264"], minHeight: 342, maxHeight: 2160 } } },
       stereo: { active: true, status: { received: ["heaac-2-dash"] } },
       waiting: { active: true, status: { received: null } },
       noaccess: { noAnswer: true }

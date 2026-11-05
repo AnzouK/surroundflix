@@ -29,8 +29,8 @@ Option A: the app
   3. Safari > Settings > Developer: tick "Allow unsigned extensions".
      Safari resets this option every time it quits.
   4. Safari > Settings > Extensions: enable Surroundflix, allow it on netflix.com.
-  The Surroundflix button in Safari's toolbar switches between 5.1 and Atmos
-  and 5.1 only.
+  The Surroundflix button in Safari's toolbar sets the audio (5.1 and Atmos,
+  or 5.1 only), the video quality and the codec.
 
 Option B: userscript (Safari only, no unsigned-extension setting needed)
   1. Install the free "Userscripts" app from the Mac App Store.

@@ -2,41 +2,51 @@
 
 All notable changes to Surroundflix are documented in this file.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-The release workflow publishes the section matching the tag as the release
-notes.
+`python3 scripts/release.py` dates a section on the day you release it and
+tags it; the release workflow publishes that section as the release notes.
+New entries go under [Unreleased].
 
 ## [Unreleased]
 
-## [0.1.0]
+## [1.0.0]
 
-First version. Not released yet: the date is added when it is tagged.
+Initial release. Surroundflix asks Netflix for its Dolby 5.1 and Atmos
+tracks in Safari, so macOS plays them with Spatial Audio on AirPods, and
+gives you control over the video Netflix sends.
 
-### Added
+### Features
 
-- Page hook that adds Netflix's Dolby Digital Plus 5.1, 5.1 HQ and Atmos
-  profiles to the player's request, without modifying Netflix's code.
-- Safari extension wrapped in a macOS app (.dmg), and a Safari userscript
-  with automatic updates.
-- Experimental Chrome extension asking for AAC 5.1, since Chrome has no
-  Dolby decoder.
-- Toolbar popup: choice between "5.1 and Atmos" and "5.1 only", and the
-  best audio Netflix sent for the current tab. When a Netflix tab doesn't
-  answer, the popup says to allow the extension on netflix.com.
-- Video quality menu in the popup: Automatic (default), At least 720p, At
-  least 1080p, At least 4K, Always the best, Data saver (720p max). Streams
-  outside the choice are removed from the list Netflix's player picks
-  from. "Always the best" also keeps the highest bitrate of each audio
-  format. The popup shows the video Netflix sent and the range it offers.
-  Userscript: `surroundflix build --video-quality <mode>`.
-- Dolby Atmos, 5.1 and Ultra HD 4K badges on title pages. Netflix sends
-  these features for every title but its web pages hide them; they are
-  shown when the browser can play them (4K and Atmos in Safari, 5.1 in
-  Chrome).
-- Resizable app window with extension status, setup steps, update check
-  and a language menu (English, French, Portuguese with Portugal, Brazil
-  and Angola variants from the system language).
-- Daily check of Netflix's player in GitHub Actions.
-- Security tests, Bandit, pip-audit, gitleaks and CodeQL in CI; release
-  checksums and build provenance.
+- **Dolby 5.1 and Atmos in Safari.** Netflix's Dolby Digital Plus 5.1,
+  5.1 HQ and Atmos profiles are added to the player's request, without
+  modifying Netflix's code. Safari plays Atmos as its 5.1 bed, shown as
+  "Multichannel" with Spatial Audio and head tracking. A "5.1 only" choice
+  leaves Atmos out if a title won't start.
+- **AAC 5.1 in Chrome.** Chrome has no Dolby decoder, so its build asks for
+  Netflix's AAC 5.1 track on titles that have one.
+- **Video quality.** Automatic, At least 720p, 1080p or 4K, Always the
+  best (highest video and audio bitrate), or Data saver (720p max).
+- **Codec choice.** Automatic, H.264 (any profile, Main or High), HEVC
+  with HDR10 and Dolby Vision (Safari), AV1, or VP9 (Chrome). H.264 Main
+  also asks for Netflix's `-prk-qc` encodes, often the highest bitrate.
+  Codecs the browser can't decode aren't offered.
+- **Title badges.** The Dolby Atmos, 5.1 and Ultra HD 4K badges Netflix
+  hides on its web pages are shown again, when the browser can play them.
+- **Toolbar popup.** The audio, quality and codec menus, a line explaining
+  each choice, and what Netflix sent for the current tab: audio, video
+  resolution, codec, HDR format, bitrate and the resolutions offered.
+- **macOS app.** A resizable window with the extension's status, setup
+  steps, a shortcut to Safari's settings and an update check, in English,
+  French and Portuguese (Portugal, Brazil and Angola).
+- **Userscript.** For the free Userscripts app, with automatic updates and
+  no unsigned-extension setting; quality and codec are set when building it.
+
+### Security and maintenance
+
+- One extension permission (`storage`), runs only on `www.netflix.com`,
+  contacts no server; page data is treated as untrusted.
+- Security tests, Bandit, pip-audit, gitleaks and CodeQL in CI.
+- Releases built by GitHub Actions with `SHA256SUMS.txt` and build
+  provenance attestations.
+- A daily check of Netflix's player opens an issue if the profiles change.

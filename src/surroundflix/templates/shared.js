@@ -92,10 +92,26 @@ function isTrustedReleaseUrl(url, repo) {
 
 // "1080p · 5.8 Mb/s" from {height, bitrate (kb/s)}, with the language's
 // decimal separator. Returns "" when the values aren't usable numbers.
+var CODEC_LABELS = {
+  h264: "H.264", h264main: "H.264 Main", h264high: "H.264 High", hevc: "HEVC", av1: "AV1", vp9: "VP9"
+};
+var RANGE_LABELS = { dv: "Dolby Vision", hdr: "HDR" };
+
+function codecLabel(name) {
+  return Object.prototype.hasOwnProperty.call(CODEC_LABELS, name) ? CODEC_LABELS[name] : "";
+}
+
 function formatVideo(video, lang) {
   if (!video || typeof video.bitrate !== "number" || !(video.bitrate > 0)) return "";
-  var rate = (video.bitrate / 1000).toLocaleString(lang, { maximumFractionDigits: 1 }) + " Mb/s";
-  return typeof video.height === "number" && video.height > 0 ? video.height + "p \u00b7 " + rate : rate;
+  var parts = [];
+  if (typeof video.height === "number" && video.height > 0) parts.push(video.height + "p");
+  var codec = codecLabel(video.codec);
+  if (codec) {
+    var range = Object.prototype.hasOwnProperty.call(RANGE_LABELS, video.dynamicRange) ? RANGE_LABELS[video.dynamicRange] : "";
+    parts.push(range ? codec + " " + range : codec);
+  }
+  parts.push((video.bitrate / 1000).toLocaleString(lang, { maximumFractionDigits: 1 }) + " Mb/s");
+  return parts.join(" \u00b7 ");
 }
 
 function applyI18n(doc, lang) {
