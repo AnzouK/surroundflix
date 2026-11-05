@@ -91,7 +91,7 @@ jobs:
       - name: Build
         if: matrix.python == '3.12'
         run: surroundflix build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: matrix.python == '3.12'
         with:
           name: surroundflix-dist
