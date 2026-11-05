@@ -42,12 +42,16 @@ JSON.parse(JSON.stringify({result: {audio_tracks: [
 out.state = window.__surroundflix;
 out.native = JSON.stringify.toString().includes("native code");
 out.status = JSON.parse(globalThis.__attrs["data-surroundflix-status"]);
-console.log(JSON.stringify(out));
+(async () => {
+  %(extra)s
+  console.log(JSON.stringify(out));
+})();
 """
 
 
-def run(preset="atmos", attr=None, dolby=True, check_dolby=False):
+def run(preset="atmos", attr=None, dolby=True, check_dolby=False, extra=""):
     code = HARNESS % {
+        "extra": extra,
         "attr": json.dumps(attr),
         "dolby": "true" if dolby else "false",
         "script": render_page_script(preset, check_dolby=check_dolby),
@@ -120,3 +124,30 @@ def test_status_is_mirrored_on_html():
     assert status["received"] == ["ddplus-5.1-dash", "heaac-2-dash"]
     assert status["patchedRequests"] == 2
     assert "ddplus-atmos-dash" in status["requested"]
+
+
+def test_nested_camel_case_manifest_is_read():
+    extra = """
+    JSON.parse(JSON.stringify({payload: {data: {audioTracks: [
+      {downloadables: [{contentProfile: "heaac-5.1-dash"}, {contentProfile: "heaac-2-dash"}]}]}}}));
+    out.camel = window.__surroundflix.lastManifestAudio;
+    """
+    assert run(extra=extra)["camel"] == ["heaac-5.1-dash", "heaac-2-dash"]
+
+
+def test_response_json_is_read():
+    extra = """
+    const body = {result: {audio_tracks: [{streams: [{content_profile: "ddplus-atmos-dash"}]}]}};
+    await new Response(JSON.stringify(body)).json();
+    out.viaFetch = window.__surroundflix.lastManifestAudio;
+    """
+    assert run(extra=extra)["viaFetch"] == ["ddplus-atmos-dash"]
+
+
+def test_video_profiles_are_ignored():
+    extra = """
+    JSON.parse(JSON.stringify({result: {audio_tracks: [{profile: "playready-h264mpl40-dash",
+      streams: [{content_profile: "ddplus-5.1-dash"}]}]}}));
+    out.mixed = window.__surroundflix.lastManifestAudio;
+    """
+    assert run(extra=extra)["mixed"] == ["ddplus-5.1-dash"]

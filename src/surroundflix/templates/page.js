@@ -133,23 +133,75 @@
   }
 
   // Records which audio profiles Netflix actually sent back, so users can
-  // paste window.__surroundflix into a bug report.
-  function inspectManifestResponse(value) {
-    var root = value && (value.result || value);
-    var tracks = root && root.audio_tracks;
-    if (!Array.isArray(tracks)) return;
-    var seen = [];
-    for (var i = 0; i < tracks.length; i++) {
-      var streams = tracks[i] && tracks[i].streams;
-      if (!Array.isArray(streams)) continue;
-      for (var j = 0; j < streams.length; j++) {
-        var cp = streams[j] && streams[j].content_profile;
-        if (cp && seen.indexOf(cp) === -1) seen.push(cp);
+  // paste window.__surroundflix into a bug report. The manifest's shape has
+  // changed over the years (audio_tracks / audioTracks, streams /
+  // downloadables, nested under result or payload), so search for it.
+  var AUDIO_TRACK_KEYS = ["audio_tracks", "audioTracks"];
+  var STREAM_KEYS = ["streams", "downloadables"];
+  var PROFILE_KEYS = ["content_profile", "contentProfile", "profile"];
+
+  function findAudioTracks(node, depth) {
+    if (!node || typeof node !== "object" || depth > 6) return null;
+    var i;
+    if (Array.isArray(node)) {
+      for (i = 0; i < node.length && i < 50; i++) {
+        var found = findAudioTracks(node[i], depth + 1);
+        if (found) return found;
       }
+      return null;
+    }
+    for (i = 0; i < AUDIO_TRACK_KEYS.length; i++) {
+      var tracks = node[AUDIO_TRACK_KEYS[i]];
+      if (Array.isArray(tracks) && tracks.length) return tracks;
+    }
+    var keys = Object.keys(node);
+    for (i = 0; i < keys.length; i++) {
+      var value = node[keys[i]];
+      if (value && typeof value === "object") {
+        var deeper = findAudioTracks(value, depth + 1);
+        if (deeper) return deeper;
+      }
+    }
+    return null;
+  }
+
+  function firstKey(obj, names) {
+    for (var i = 0; i < names.length; i++) {
+      if (obj && obj[names[i]] != null) return obj[names[i]];
+    }
+    return null;
+  }
+
+  function audioProfilesOf(tracks) {
+    var seen = [];
+    function add(cp) {
+      if (typeof cp === "string" && AUDIO_PROFILE.test(cp) && seen.indexOf(cp) === -1) seen.push(cp);
+    }
+    for (var i = 0; i < tracks.length; i++) {
+      add(firstKey(tracks[i], PROFILE_KEYS));
+      var streams = firstKey(tracks[i], STREAM_KEYS);
+      if (!Array.isArray(streams)) continue;
+      for (var j = 0; j < streams.length; j++) add(firstKey(streams[j], PROFILE_KEYS));
+    }
+    return seen;
+  }
+
+  function inspectManifestResponse(value) {
+    var tracks = findAudioTracks(value, 0);
+    if (!tracks) return false;
+    var seen = audioProfilesOf(tracks);
+    if (!seen.length) {
+      log("audio tracks found but no profile names; first track keys:", Object.keys(tracks[0] || {}));
+      return false;
     }
     state.lastManifestAudio = seen;
     publishStatus();
     log("audio profiles returned by Netflix:", seen);
+    return true;
+  }
+
+  function mentionsAudioTracks(text) {
+    return text.indexOf("audio_tracks") !== -1 || text.indexOf("audioTracks") !== -1;
   }
 
   var nativeStringify = JSON.stringify;
@@ -177,14 +229,32 @@
   function parse(text, reviver) {
     var result = nativeParse.call(this, text, reviver);
     try {
-      if (result && typeof result === "object" && typeof text === "string" &&
-          text.indexOf("audio_tracks") !== -1) {
-        inspectManifestResponse(result);
+      if (result && typeof result === "object" && typeof text === "string" && mentionsAudioTracks(text)) {
+        if (!inspectManifestResponse(result)) {
+          log("response mentions audio tracks but none were read; top-level keys:", Object.keys(result));
+        }
       }
     } catch (err) {
       log("inspect skipped:", err);
     }
     return result;
+  }
+
+  // Some responses are decoded with fetch's Response.json(), which doesn't
+  // go through JSON.parse.
+  var nativeResponseJson = window.Response && window.Response.prototype.json;
+  if (nativeResponseJson) {
+    window.Response.prototype.json = function () {
+      return nativeResponseJson.call(this).then(function (data) {
+        try {
+          if (data && typeof data === "object") inspectManifestResponse(data);
+        } catch (err) {
+          log("inspect skipped:", err);
+        }
+        return data;
+      });
+    };
+    window.Response.prototype.json.toString = function () { return nativeResponseJson.toString(); };
   }
 
   // Keep the wrappers looking like the originals to other page code.
