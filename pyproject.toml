@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "surroundflix"
 version = "0.1.0"
-description = "Ask Netflix for its 5.1 / Atmos audio tracks in Safari on macOS (Spatial Audio friendly)."
+description = "Get Netflix's Dolby 5.1 and Atmos audio in Safari on macOS, with Spatial Audio on AirPods; experimental AAC 5.1 in Chrome."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "AnzouK" }]
-keywords = ["netflix", "safari", "dolby", "atmos", "spatial-audio", "macos", "userscript"]
+keywords = ["netflix", "safari", "chrome", "dolby", "atmos", "spatial-audio", "macos", "userscript"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: MacOS",

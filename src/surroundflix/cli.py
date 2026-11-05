@@ -93,7 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--debug", action="store_true", help="log to the Safari console")
         sp.add_argument("--out", default="dist", help="output folder (default: dist)")
 
-    sp = sub.add_parser("build", help="build the userscript and the Safari WebExtension")
+    sp = sub.add_parser("build", help="build the userscript, the Safari and Chrome extensions and the app window")
     add_build_opts(sp)
     sp.set_defaults(func=_cmd_build)
 

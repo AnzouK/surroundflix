@@ -35,12 +35,12 @@ with Spatial Audio.
 
 ## What you get
 
-| Title on Netflix | Safari | Safari + Surroundflix | Chrome + Surroundflix |
-| --- | --- | --- | --- |
-| Stereo only | Stereo | Stereo | Stereo |
-| 5.1 | Stereo | Dolby 5.1, "Multichannel" | AAC 5.1 when offered |
-| Dolby Atmos | Stereo | 5.1 bed of the Atmos mix, "Multichannel" | AAC 5.1 when offered |
-| Spatial Audio on AirPods | Stereo only | Yes, with head tracking | No |
+| Title on Netflix | Safari | Safari + Surroundflix | Chrome | Chrome + Surroundflix |
+| --- | --- | --- | --- | --- |
+| Stereo only | Stereo | Stereo | Stereo | Stereo |
+| 5.1 | Stereo | Dolby 5.1, "Multichannel" | Stereo | AAC 5.1 when offered |
+| Dolby Atmos | Stereo | 5.1 bed of the Atmos mix, "Multichannel" | Stereo | AAC 5.1 when offered |
+| Multichannel Spatial Audio on AirPods | No | Yes, with head tracking | No | No |
 
 Safari decodes Netflix's Atmos stream (E-AC-3 JOC) down to its 5.1 bed and
 hands at most six channels to macOS. That limit is in WebKit and no
@@ -87,7 +87,8 @@ between **5.1 and Atmos** (default) and **5.1 only**.
 2. Open `surroundflix.user.js` (in the release, or inside the .dmg) with Userscripts.
 3. Allow it on netflix.com and reload Netflix.
 
-The userscript always asks for 5.1 and Atmos; it has no toolbar button.
+The userscript is for Safari only and always asks for 5.1 and Atmos; it
+has no toolbar button. In Chrome, use the Chrome extension below.
 
 ### Chrome (experimental)
 
@@ -102,7 +103,8 @@ downmix. It's mostly useful with real 5.1 speakers.
 
 ## Check that it works
 
-1. Play a title with the 5.1 or Atmos badge.
+1. Play a title that has 5.1 or Atmos audio. Netflix's web pages don't show
+   those badges, even with Surroundflix; the player's audio menu does.
 2. The player's audio menu should list `English (5.1)` or `English (Atmos)`.
 3. With AirPods connected, Control Center > Sound should say Multichannel / Spatial Audio, not Stereo.
 
@@ -165,7 +167,7 @@ a language, copy the `en` block, translate it, add its name under
 ## Automatic watch
 
 `.github/workflows/watch-playercore.yml` runs once a day. It downloads
-Netflix's current player, checks that the Dolby profile names and the
+Netflix's current player, checks that the Dolby and AAC 5.1 profile names and the
 `profiles` request field are still there, records the player version in
 `.github/playercore-state.json`, and opens an issue if something is missing.
 

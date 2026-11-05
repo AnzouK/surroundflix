@@ -2,8 +2,9 @@
 
 Netflix's player (Cadmium) sends a list of "profiles" to the manifest
 endpoint. Each profile is a codec + layout the client claims it can play.
-On the web, Safari only advertises stereo, so the server only returns
-stereo tracks. Surroundflix appends the Dolby Digital Plus profiles below.
+On the web, browsers only advertise stereo, so the server only returns
+stereo tracks. Surroundflix appends the Dolby Digital Plus profiles below
+(or AAC 5.1 in browsers without a Dolby decoder).
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ NO_DOLBY_PROFILES = [HEAAC_51]
 
 # Strings the static playercore check expects to find. If Netflix renames
 # or drops these, the injected profiles would be ignored.
-EXPECTED_IN_PLAYERCORE = [DDPLUS_51, DDPLUS_ATMOS, "heaac-2-dash", "profiles"]
+EXPECTED_IN_PLAYERCORE = [DDPLUS_51, DDPLUS_ATMOS, "heaac-2-dash", "heaac-5.1-dash", "profiles"]
 
 
 def resolve(preset: str) -> list[str]:

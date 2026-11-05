@@ -20,15 +20,17 @@ from .build import build, make_xcode_project
 
 INSTALL_NOTE = """Surroundflix {version}
 
-Option 1: Safari extension
+Option A: the app
   1. Drag Surroundflix into Applications and open it.
      If macOS blocks it: System Settings > Privacy & Security > Open Anyway.
   2. Safari > Settings > Advanced: tick "Show features for web developers".
   3. Safari > Settings > Developer: tick "Allow unsigned extensions".
      Safari resets this option every time it quits.
   4. Safari > Settings > Extensions: enable Surroundflix, allow it on netflix.com.
+  The Surroundflix button in Safari's toolbar switches between 5.1 and Atmos
+  and 5.1 only.
 
-Option 2: userscript (no unsigned-extension setting needed)
+Option B: userscript (Safari only, no unsigned-extension setting needed)
   1. Install the free "Userscripts" app from the Mac App Store.
   2. Open surroundflix.user.js with it and allow it on netflix.com.
 

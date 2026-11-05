@@ -1,7 +1,7 @@
 """Watches Netflix's Cadmium playercore for changes that could break us.
 
 Surroundflix doesn't patch the playercore, but it relies on two facts
-about it: the player still knows the Dolby profile names, and its
+about it: the player still knows the Dolby and AAC 5.1 profile names, and its
 manifest request still carries a "profiles" list. This module downloads
 the current playercore and checks both, so a scheduled GitHub Action can
 open an issue the day Netflix ships something that matters.
