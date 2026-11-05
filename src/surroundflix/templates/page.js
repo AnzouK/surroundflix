@@ -45,7 +45,8 @@
     patchedRequests: 0,
     lastPatchedAt: null,
     lastManifestAudio: null,
-    lastManifestVideo: null
+    lastManifestVideo: null,
+    titlesWithBadges: 0
   };
 
   // Mirrors the state into an attribute on <html> so the content script,
@@ -331,6 +332,182 @@
     return audio || video;
   }
 
+  // Title badges. Netflix sends every title's features ("playbackBadges":
+  // AUDIO_DOLBY_ATMOS, AUDIO_FIVE_DOT_ONE, VIDEO_ULTRA_HD...) but its page
+  // only draws those it thinks this browser can play, so Atmos, 5.1 and 4K
+  // never show in Safari. We add them next to Netflix's own badges, with
+  // Netflix's badge class so they look the same.
+  var BADGES = [
+    { id: "uhd", feature: "VIDEO_ULTRA_HD", label: "Ultra HD 4K" },
+    { id: "atmos", feature: "AUDIO_DOLBY_ATMOS", label: "Dolby Atmos" },
+    { id: "5.1", feature: "AUDIO_FIVE_DOT_ONE", label: "5.1" }
+  ];
+  var BADGE_ATTR = "data-surroundflix-badge";
+  var LINE_ATTR = "data-surroundflix-badges";
+  var METADATA_LINE = ".videoMetadata--line";
+  var HD_BADGE = '[data-uia="player-feature-badge-hd"]';
+  // Netflix's own items in a metadata line, in the order they appear. Ours
+  // go after the last one present.
+  var NATIVE_ITEMS = [".year", ".duration", ".maturity-rating", ".player-feature-badge",
+    ".svg-icon-dolby-vision", ".spatial-audio"];
+  var MAX_TITLES = 5000;
+  var featuresById = {};
+  var titleCount = 0;
+
+  // Finds every object with a videoId and a playbackBadges list.
+  function collectBadges(node, depth) {
+    if (!node || typeof node !== "object" || depth > 8) return 0;
+    var found = 0, i;
+    if (Array.isArray(node)) {
+      for (i = 0; i < node.length && i < 500; i++) found += collectBadges(node[i], depth + 1);
+      return found;
+    }
+    var id = node.videoId;
+    if (Array.isArray(node.playbackBadges) && (typeof id === "number" || typeof id === "string") &&
+        /^\d+$/.test(String(id))) {
+      if (!Object.prototype.hasOwnProperty.call(featuresById, String(id))) {
+        if (titleCount >= MAX_TITLES) return found;
+        titleCount++;
+      }
+      featuresById[String(id)] = node.playbackBadges.filter(function (b) { return typeof b === "string"; });
+      found++;
+    }
+    var keys = Object.keys(node);
+    for (i = 0; i < keys.length; i++) {
+      var value = node[keys[i]];
+      if (value && typeof value === "object") found += collectBadges(value, depth + 1);
+    }
+    return found;
+  }
+
+  // Which of our badges a title gets in this browser: 4K needs Safari
+  // (FairPlay), Atmos needs a Dolby decoder and the "5.1 and Atmos" choice,
+  // 5.1 plays everywhere (AAC 5.1 in Chrome). An Atmos title shows Atmos
+  // only, like Netflix's apps do.
+  function badgesFor(features) {
+    var atmosWanted = dolbySupported() &&
+      CONFIG.presets[currentPreset()].indexOf("ddplus-atmos-dash") !== -1;
+    var hasAtmos = atmosWanted && features.indexOf("AUDIO_DOLBY_ATMOS") !== -1;
+    return BADGES.filter(function (b) {
+      if (features.indexOf(b.feature) === -1) return false;
+      if (b.id === "uhd") return !CONFIG.checkDolby;
+      if (b.id === "atmos") return hasAtmos;
+      return !hasAtmos;
+    });
+  }
+
+  function trackedVideoId(text) {
+    try {
+      text = decodeURIComponent(text || "");
+    } catch (err) {
+      return null;
+    }
+    var m = /"video_id":(\d+)/.exec(text);
+    return m ? m[1] : null;
+  }
+
+  // The title a metadata line belongs to: the tracking data Netflix puts in
+  // each card and in the details modal, or else the ?jbv= of the open modal.
+  function videoIdFor(line) {
+    var node = line;
+    for (var depth = 0; depth < 7 && node.parentElement; depth++) {
+      node = node.parentElement;
+      // Past this point we'd be reading another title's card.
+      if (node.querySelectorAll(METADATA_LINE).length > 1) break;
+      var tracked = node.querySelectorAll("[data-ui-tracking-context]");
+      for (var i = 0; i < tracked.length; i++) {
+        var id = trackedVideoId(tracked[i].getAttribute("data-ui-tracking-context"));
+        if (id) return id;
+      }
+    }
+    var m = /[?&]jbv=(\d+)/.exec((window.location && window.location.search) || "");
+    return m ? m[1] : null;
+  }
+
+  function matchesAny(el, selectors) {
+    for (var i = 0; i < selectors.length; i++) {
+      if (el.matches(selectors[i])) return true;
+    }
+    return false;
+  }
+
+  function lastNativeItem(line) {
+    var last = null;
+    for (var i = 0; i < line.children.length; i++) {
+      var child = line.children[i];
+      if (!child.hasAttribute(BADGE_ATTR) && matchesAny(child, NATIVE_ITEMS)) last = child;
+    }
+    return last;
+  }
+
+  function nativeLabels(line) {
+    var labels = [];
+    var items = line.querySelectorAll(".player-feature-badge");
+    for (var i = 0; i < items.length; i++) {
+      if (!items[i].hasAttribute(BADGE_ATTR)) labels.push(String(items[i].textContent).trim());
+    }
+    return labels;
+  }
+
+  function drawBadges(line) {
+    var id = videoIdFor(line);
+    var features = id && featuresById[id];
+    if (!features) return;
+    var native = nativeLabels(line);
+    var wanted = badgesFor(features).filter(function (b) { return native.indexOf(b.label) === -1; });
+    var key = id + ":" + wanted.map(function (b) { return b.id; }).join(",");
+    var ours = line.querySelectorAll("[" + BADGE_ATTR + "]");
+    // React may reuse the line for another title or drop our nodes.
+    if (line.getAttribute(LINE_ATTR) === key && ours.length === wanted.length) return;
+    for (var i = 0; i < ours.length; i++) line.removeChild(ours[i]);
+    var hd = line.querySelector(HD_BADGE);
+    if (hd) hd.style.display = "";
+    var anchor = lastNativeItem(line);
+    wanted.forEach(function (b) {
+      var badge = document.createElement("span");
+      badge.className = "player-feature-badge";
+      badge.setAttribute(BADGE_ATTR, b.id);
+      badge.textContent = b.label;
+      line.insertBefore(badge, anchor ? anchor.nextSibling : null);
+      anchor = badge;
+      // "Ultra HD 4K" replaces Netflix's "HD".
+      if (b.id === "uhd" && hd) hd.style.display = "none";
+    });
+    line.setAttribute(LINE_ATTR, key);
+  }
+
+  function drawAllBadges() {
+    var lines = document.querySelectorAll(METADATA_LINE);
+    for (var i = 0; i < lines.length; i++) drawBadges(lines[i]);
+  }
+
+  var badgeTimer = null;
+  function drawBadgesSoon() {
+    if (badgeTimer !== null || !document.querySelectorAll) return;
+    badgeTimer = setTimeout(function () {
+      badgeTimer = null;
+      try {
+        drawAllBadges();
+      } catch (err) {
+        log("badges skipped:", err);
+      }
+    }, 100);
+  }
+
+  function inspectBadges(value) {
+    if (collectBadges(value, 0) > 0) {
+      state.titlesWithBadges = titleCount;
+      drawBadgesSoon();
+    }
+  }
+
+  function watchPage() {
+    if (typeof window.MutationObserver !== "function" || !document.documentElement ||
+        !document.querySelectorAll) return;
+    new window.MutationObserver(drawBadgesSoon)
+      .observe(document.documentElement, { childList: true, subtree: true });
+  }
+
   function mentionsTracks(text) {
     return text.indexOf("audio_tracks") !== -1 || text.indexOf("audioTracks") !== -1 ||
       text.indexOf("video_tracks") !== -1 || text.indexOf("videoTracks") !== -1;
@@ -361,10 +538,11 @@
   function parse(text, reviver) {
     var result = nativeParse.call(this, text, reviver);
     try {
-      if (result && typeof result === "object" && typeof text === "string" && mentionsTracks(text)) {
-        if (!handleManifest(result)) {
+      if (result && typeof result === "object" && typeof text === "string") {
+        if (mentionsTracks(text) && !handleManifest(result)) {
           log("response mentions tracks but none were read; top-level keys:", Object.keys(result));
         }
+        if (text.indexOf("playbackBadges") !== -1) inspectBadges(result);
       }
     } catch (err) {
       log("inspect skipped:", err);
@@ -379,7 +557,10 @@
     window.Response.prototype.json = function () {
       return nativeResponseJson.call(this).then(function (data) {
         try {
-          if (data && typeof data === "object") handleManifest(data);
+          if (data && typeof data === "object") {
+            handleManifest(data);
+            inspectBadges(data);
+          }
         } catch (err) {
           log("inspect skipped:", err);
         }
@@ -398,5 +579,6 @@
 
   Object.defineProperty(window, "__surroundflix", { value: state, configurable: false });
   publishStatus();
+  watchPage();
   log("active, default preset", CONFIG.preset);
 })();

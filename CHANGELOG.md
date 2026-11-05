@@ -13,6 +13,10 @@ section matching the tag as the release notes.
   "Always the best" also keeps the highest bitrate of each audio format.
   The popup shows the video Netflix sent and the range it offers.
   Userscript: `surroundflix build --video-quality <mode>`.
+- Dolby Atmos, 5.1 and Ultra HD 4K badges on title pages. Netflix sends
+  these features for every title but its web pages hide them; they are
+  shown when the browser can play them (4K and Atmos in Safari, 5.1 in
+  Chrome).
 
 ## [0.1.0]
 
