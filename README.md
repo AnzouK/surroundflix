@@ -1,22 +1,45 @@
-<p align="center"><img src="assets/icon.svg" width="128" alt="Surroundflix icon: five speakers around a listener"></p>
+<div align="center">
 
-# Surroundflix
+<img src="assets/icon.svg" width="112" alt="Surroundflix icon: five speakers around a listener">
+
+<h1>Surroundflix</h1>
+
+<p><strong>Netflix's Dolby 5.1 and Atmos tracks in Safari on macOS, with Spatial Audio on AirPods.</strong></p>
+
+<a href="https://github.com/AnzouK/surroundflix/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AnzouK/surroundflix/ci.yml?branch=main&label=CI&logo=github" alt="CI status"></a>
+<a href="https://github.com/AnzouK/surroundflix/releases"><img src="https://img.shields.io/github/v/release/AnzouK/surroundflix?include_prereleases&label=release&color=8250df" alt="Latest release"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6c8f2d" alt="License: MIT"></a>
+<img src="https://img.shields.io/badge/macOS-Safari%2016.4%2B-555555?logo=safari&logoColor=white" alt="macOS, Safari 16.4 or later">
+<img src="https://img.shields.io/badge/audio-5.1%20%C2%B7%20Atmos-de9a40" alt="Audio: 5.1 and Atmos">
+<img src="https://img.shields.io/badge/interface-3%20languages-c9a227" alt="Interface in 3 languages">
+
+<p>
+<a href="#install">Install</a> &nbsp;·&nbsp;
+<a href="#check-that-it-works">Check it works</a> &nbsp;·&nbsp;
+<a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
+<a href="#building-from-source">Build</a> &nbsp;·&nbsp;
+<a href="#credits">Credits</a>
+</p>
+
+</div>
 
 Netflix in Safari on macOS only sends stereo, even on the Premium plan with
 AirPods Pro, AirPods Max or a surround setup. Surroundflix asks Netflix for
 its Dolby Digital Plus 5.1 and Atmos tracks instead, so macOS can play them
 with Spatial Audio.
 
-Experimental. Netflix can change its player at any time; a daily check
-watches for that (see [Automatic watch](#automatic-watch)).
+> [!NOTE]
+> Experimental. Netflix can change its player at any time; a daily check
+> watches for that (see [Automatic watch](#automatic-watch)).
 
 ## What you get
 
-| Title on Netflix | Safari | Safari + Surroundflix |
-| --- | --- | --- |
-| Stereo only | Stereo | Stereo |
-| 5.1 | Stereo | 5.1 ("Multichannel" in Control Center) |
-| Dolby Atmos | Stereo | 5.1 bed of the Atmos mix (Netflix shows "Atmos", macOS shows "Multichannel") |
+| Title on Netflix | Safari | Safari + Surroundflix | Chrome + Surroundflix |
+| --- | --- | --- | --- |
+| Stereo only | Stereo | Stereo | Stereo |
+| 5.1 | Stereo | Dolby 5.1, "Multichannel" | AAC 5.1 when offered |
+| Dolby Atmos | Stereo | 5.1 bed of the Atmos mix, "Multichannel" | AAC 5.1 when offered |
+| Spatial Audio on AirPods | Stereo only | Yes, with head tracking | No |
 
 Safari decodes Netflix's Atmos stream (E-AC-3 JOC) down to its 5.1 bed and
 hands at most six channels to macOS. That limit is in WebKit and no
@@ -69,8 +92,9 @@ The userscript always asks for 5.1 and Atmos; it has no toolbar button.
 
 Chrome has no Dolby decoder, on any system, so no Atmos or Dolby 5.1 there.
 The Chrome build asks Netflix for its AAC 5.1 track instead, on titles that
-still offer one. Whether that reaches AirPods as multichannel depends on
-Chrome and macOS, and isn't confirmed yet.
+still offer one. On macOS, Chrome doesn't hand multichannel audio to
+AirPods, so Spatial Audio shows as unavailable and you hear a stereo
+downmix. It's mostly useful with real 5.1 speakers.
 
 1. Download `surroundflix-chrome.zip` from the release and unzip it.
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder.
