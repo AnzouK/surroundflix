@@ -29,6 +29,10 @@ DEFAULT_PRESET = "atmos"
 HEAAC_51 = "heaac-5.1-dash"
 NO_DOLBY_PROFILES = [HEAAC_51]
 
+# Video quality modes offered in the popup (page.js has the matching rules).
+VIDEO_MODES = ["auto", "min720", "min1080", "min2160", "best", "saver720"]
+DEFAULT_VIDEO_MODE = "auto"
+
 # Strings the static playercore check expects to find. If Netflix renames
 # or drops these, the injected profiles would be ignored.
 EXPECTED_IN_PLAYERCORE = [DDPLUS_51, DDPLUS_ATMOS, "heaac-2-dash", "heaac-5.1-dash", "profiles"]

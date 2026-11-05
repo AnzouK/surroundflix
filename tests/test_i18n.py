@@ -103,3 +103,25 @@ def test_best_audio(received, expected):
         ["node", "-e", code], capture_output=True, text=True, check=True
     ).stdout.strip()
     assert json.loads(out) == expected
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node is not installed")
+@pytest.mark.parametrize(
+    "video,lang,expected",
+    [
+        ({"height": 1080, "bitrate": 5800}, "en", "1080p \u00b7 5.8 Mb/s"),
+        ({"height": 2160, "bitrate": 15250}, "fr", "2160p \u00b7 15,3 Mb/s"),
+        ({"bitrate": 3000}, "en", "3 Mb/s"),
+        ({"height": 1080, "bitrate": "5800"}, "en", ""),
+        (None, "en", ""),
+    ],
+)
+def test_format_video(video, lang, expected):
+    code = (
+        shared_js()
+        + f"\nconsole.log(JSON.stringify(formatVideo({json.dumps(video)}, {json.dumps(lang)})));"
+    )
+    out = subprocess.run(
+        ["node", "-e", code], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    assert json.loads(out) == expected

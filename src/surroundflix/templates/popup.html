@@ -16,11 +16,27 @@
     <label><input type="radio" name="preset" value="atmos"> <span data-i18n="preset_atmos"></span></label>
     <label><input type="radio" name="preset" value="surround"> <span data-i18n="preset_surround"></span></label>
   </fieldset>
-  <p class="note" data-i18n="apply_hint"></p>
   <p class="note warn" id="no-dolby" hidden data-i18n="no_dolby"></p>
+  <fieldset id="video">
+    <legend data-i18n="video">Video</legend>
+    <label class="select"><span data-i18n="video_quality"></span>
+      <select id="video-quality">
+        <option value="auto" data-i18n="video_auto"></option>
+        <option value="min720" data-i18n="video_min720"></option>
+        <option value="min1080" data-i18n="video_min1080"></option>
+        <option value="min2160" data-i18n="video_min2160"></option>
+        <option value="best" data-i18n="video_best"></option>
+        <option value="saver720" data-i18n="video_saver"></option>
+      </select>
+    </label>
+    <p class="note" data-i18n="video_hint"></p>
+  </fieldset>
+  <p class="note" data-i18n="apply_hint"></p>
   <section class="tab">
     <h2 data-i18n="tab_heading"></h2>
     <p id="tab-status" aria-live="polite"></p>
+    <p id="tab-video" hidden></p>
+    <p id="tab-range" class="note" hidden></p>
   </section>
 </main>
 <script src="popup.js"></script>

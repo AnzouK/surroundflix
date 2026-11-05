@@ -17,12 +17,19 @@
     if (value) root.setAttribute("data-surroundflix-preset", value);
   }
 
+  function setVideo(value) {
+    if (typeof value === "string") root.setAttribute("data-surroundflix-video", value);
+  }
+
   try {
-    Promise.resolve(api.storage.local.get("preset")).then(function (stored) {
+    Promise.resolve(api.storage.local.get(["preset", "videoQuality"])).then(function (stored) {
       setPreset(stored && stored.preset);
-    }, function () { /* no stored choice: page.js uses the default preset */ });
+      setVideo(stored && stored.videoQuality);
+    }, function () { /* no stored choice: page.js uses its defaults */ });
     api.storage.onChanged.addListener(function (changes, area) {
-      if (area === "local" && changes.preset) setPreset(changes.preset.newValue);
+      if (area !== "local") return;
+      if (changes.preset) setPreset(changes.preset.newValue);
+      if (changes.videoQuality) setVideo(changes.videoQuality.newValue);
     });
   } catch (err) {
     // Storage unavailable: page.js falls back to the default preset.

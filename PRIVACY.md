@@ -8,11 +8,12 @@ tracking and no cookies.
 - They run only on `www.netflix.com` and send nothing anywhere. The only
   change they make is adding audio formats to the request Netflix's own
   player sends to Netflix.
-- The extension stores one value in your browser: your audio choice
-  ("5.1 and Atmos" or "5.1 only"), in the browser's extension storage. It
-  never leaves your computer.
-- "On this tab" in the popup reads the audio formats Netflix sent for the
-  current title. That information stays in the page and the popup.
+- The extension stores two settings in your browser's extension storage:
+  your audio choice ("5.1 and Atmos" or "5.1 only") and your video quality
+  choice. They never leave your computer.
+- "On this tab" in the popup reads the audio formats and the video quality
+  Netflix sent for the current title. That information stays in the page
+  and the popup.
 - They read nothing else: no viewing history, no account details, no
   other site.
 

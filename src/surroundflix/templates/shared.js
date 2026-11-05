@@ -90,6 +90,14 @@ function isTrustedReleaseUrl(url, repo) {
   return typeof url === "string" && url.indexOf(prefix) === 0 && !/[\s"'<>]/.test(url);
 }
 
+// "1080p · 5.8 Mb/s" from {height, bitrate (kb/s)}, with the language's
+// decimal separator. Returns "" when the values aren't usable numbers.
+function formatVideo(video, lang) {
+  if (!video || typeof video.bitrate !== "number" || !(video.bitrate > 0)) return "";
+  var rate = (video.bitrate / 1000).toLocaleString(lang, { maximumFractionDigits: 1 }) + " Mb/s";
+  return typeof video.height === "number" && video.height > 0 ? video.height + "p \u00b7 " + rate : rate;
+}
+
 function applyI18n(doc, lang) {
   doc.documentElement.lang = lang;
   var nodes = doc.querySelectorAll("[data-i18n]");

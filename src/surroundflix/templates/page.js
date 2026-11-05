@@ -24,8 +24,18 @@
   var AUDIO_PROFILE = /^(heaac|xheaac|ddplus)-/;
   var MANIFEST_KEYS = ["params", "profiles", "profileGroups"];
   var MAX_DEPTH = 5;
-  // The extension writes the preset chosen in its popup here.
+  // The extension writes the choices made in its popup here.
   var PRESET_ATTR = "data-surroundflix-preset";
+  var VIDEO_ATTR = "data-surroundflix-video";
+  // Video quality modes, by name. "auto" leaves Netflix's list alone.
+  var VIDEO_MODES = {
+    auto: {},
+    min720: { minHeight: 720 },
+    min1080: { minHeight: 1080 },
+    min2160: { minHeight: 2160 },
+    best: { best: true },
+    saver720: { maxHeight: 720 }
+  };
 
   var state = {
     version: CONFIG.version,
@@ -34,7 +44,8 @@
     requested: [],
     patchedRequests: 0,
     lastPatchedAt: null,
-    lastManifestAudio: null
+    lastManifestAudio: null,
+    lastManifestVideo: null
   };
 
   // Mirrors the state into an attribute on <html> so the content script,
@@ -47,6 +58,7 @@
       preset: state.preset,
       requested: state.requested,
       received: state.lastManifestAudio,
+      video: state.lastManifestVideo,
       patchedRequests: state.patchedRequests
     }));
   }
@@ -77,6 +89,15 @@
     // The attribute can be set by any script on the page: accept only our
     // own preset names (not "constructor", "__proto__"...).
     return chosen && Object.prototype.hasOwnProperty.call(CONFIG.presets, chosen) ? chosen : CONFIG.preset;
+  }
+
+  // The video mode chosen in the popup (or set by the build, for the
+  // userscript). Only our own mode names are accepted.
+  function videoMode() {
+    var root = document.documentElement;
+    var value = root && root.getAttribute(VIDEO_ATTR);
+    if (value && Object.prototype.hasOwnProperty.call(VIDEO_MODES, value)) return value;
+    return Object.prototype.hasOwnProperty.call(VIDEO_MODES, CONFIG.videoQuality) ? CONFIG.videoQuality : "auto";
   }
 
   // Read at request time, so a change in the popup applies to the next title.
@@ -139,28 +160,31 @@
   // changed over the years (audio_tracks / audioTracks, streams /
   // downloadables, nested under result or payload), so search for it.
   var AUDIO_TRACK_KEYS = ["audio_tracks", "audioTracks"];
+  var VIDEO_TRACK_KEYS = ["video_tracks", "videoTracks"];
   var STREAM_KEYS = ["streams", "downloadables"];
   var PROFILE_KEYS = ["content_profile", "contentProfile", "profile"];
+  var BITRATE_KEYS = ["bitrate", "bitrateKbps"];
+  var HEIGHT_KEYS = ["res_h", "height", "resH"];
 
-  function findAudioTracks(node, depth) {
+  function findTracks(node, names, depth) {
     if (!node || typeof node !== "object" || depth > 6) return null;
     var i;
     if (Array.isArray(node)) {
       for (i = 0; i < node.length && i < 50; i++) {
-        var found = findAudioTracks(node[i], depth + 1);
+        var found = findTracks(node[i], names, depth + 1);
         if (found) return found;
       }
       return null;
     }
-    for (i = 0; i < AUDIO_TRACK_KEYS.length; i++) {
-      var tracks = node[AUDIO_TRACK_KEYS[i]];
+    for (i = 0; i < names.length; i++) {
+      var tracks = node[names[i]];
       if (Array.isArray(tracks) && tracks.length) return tracks;
     }
     var keys = Object.keys(node);
     for (i = 0; i < keys.length; i++) {
       var value = node[keys[i]];
       if (value && typeof value === "object") {
-        var deeper = findAudioTracks(value, depth + 1);
+        var deeper = findTracks(value, names, depth + 1);
         if (deeper) return deeper;
       }
     }
@@ -188,8 +212,8 @@
     return seen;
   }
 
-  function inspectManifestResponse(value) {
-    var tracks = findAudioTracks(value, 0);
+  function inspectAudio(value) {
+    var tracks = findTracks(value, AUDIO_TRACK_KEYS, 0);
     if (!tracks) return false;
     var seen = audioProfilesOf(tracks);
     if (!seen.length) {
@@ -197,13 +221,119 @@
       return false;
     }
     state.lastManifestAudio = seen;
-    publishStatus();
     log("audio profiles returned by Netflix:", seen);
     return true;
   }
 
-  function mentionsAudioTracks(text) {
-    return text.indexOf("audio_tracks") !== -1 || text.indexOf("audioTracks") !== -1;
+  function number(value) {
+    return typeof value === "number" && isFinite(value) && value > 0 ? value : null;
+  }
+
+  // Replaces the contents of `list` in place (other code may hold it).
+  function replaceAll(list, kept) {
+    if (kept === list || kept.length === list.length) return;
+    var copy = kept.slice();
+    list.length = 0;
+    Array.prototype.push.apply(list, copy);
+  }
+
+  // Which video streams to keep for a mode. Never returns an empty list: if
+  // nothing meets a minimum (or maximum), the closest streams are kept.
+  function pickVideo(streams, mode) {
+    var rule = VIDEO_MODES[mode];
+    function rate(s) { return number(firstKey(s, BITRATE_KEYS)); }
+    function height(s) { return number(firstKey(s, HEIGHT_KEYS)); }
+    if (rule.best) {
+      var top = Math.max.apply(null, streams.map(function (s) { return rate(s) || 0; }));
+      return top > 0 ? streams.filter(function (s) { return rate(s) === top; }) : streams;
+    }
+    var heights = streams.map(height).filter(function (h) { return h !== null; });
+    if (heights.length !== streams.length) return streams; // unknown sizes: leave alone
+    if (rule.minHeight) {
+      var high = streams.filter(function (s) { return height(s) >= rule.minHeight; });
+      if (high.length) return high;
+      var tallest = Math.max.apply(null, heights);
+      return streams.filter(function (s) { return height(s) === tallest; });
+    }
+    if (rule.maxHeight) {
+      var low = streams.filter(function (s) { return height(s) <= rule.maxHeight; });
+      if (low.length) return low;
+      var shortest = Math.min.apply(null, heights);
+      return streams.filter(function (s) { return height(s) === shortest; });
+    }
+    return streams;
+  }
+
+  // Records the video Netflix offers and applies the chosen mode by removing
+  // streams from the list the player picks from. Netflix's player itself is
+  // untouched: it just gets a shorter list.
+  function handleVideo(value, mode) {
+    var tracks = findTracks(value, VIDEO_TRACK_KEYS, 0);
+    if (!tracks) return false;
+    var offered = [], kept = [], total = 0;
+    for (var i = 0; i < tracks.length; i++) {
+      var streams = firstKey(tracks[i], STREAM_KEYS);
+      if (!Array.isArray(streams) || !streams.length) continue;
+      total += streams.length;
+      Array.prototype.push.apply(offered, streams);
+      if (mode !== "auto" && streams.length > 1) replaceAll(streams, pickVideo(streams, mode));
+      Array.prototype.push.apply(kept, streams);
+    }
+    function rate(s) { return number(firstKey(s, BITRATE_KEYS)); }
+    function height(s) { return number(firstKey(s, HEIGHT_KEYS)); }
+    var best = null;
+    kept.forEach(function (s) {
+      if (rate(s) !== null && (best === null || rate(s) > rate(best))) best = s;
+    });
+    if (!best) return false;
+    var heights = offered.map(height).filter(function (h) { return h !== null; });
+    state.lastManifestVideo = {
+      mode: mode,
+      bitrate: rate(best),
+      height: height(best),
+      minHeight: heights.length ? Math.min.apply(null, heights) : null,
+      maxHeight: heights.length ? Math.max.apply(null, heights) : null,
+      streams: total,
+      kept: kept.length
+    };
+    log("video", mode, state.lastManifestVideo);
+    return true;
+  }
+
+  // "Always the best" also keeps only the highest bitrate of each audio
+  // format (Netflix sometimes offers a format at several bitrates). Formats
+  // aren't mixed: the 5.1 / Atmos choice stays the player's.
+  function lockAudioBitrate(value) {
+    var tracks = findTracks(value, AUDIO_TRACK_KEYS, 0) || [];
+    tracks.forEach(function (track) {
+      var streams = firstKey(track, STREAM_KEYS);
+      if (!Array.isArray(streams) || streams.length < 2) return;
+      var top = {};
+      streams.forEach(function (s) {
+        var key = String(firstKey(s, PROFILE_KEYS));
+        var r = number(firstKey(s, BITRATE_KEYS));
+        if (r !== null && (!(key in top) || r > top[key])) top[key] = r;
+      });
+      replaceAll(streams, streams.filter(function (s) {
+        var key = String(firstKey(s, PROFILE_KEYS));
+        var r = number(firstKey(s, BITRATE_KEYS));
+        return r === null || !(key in top) || r === top[key];
+      }));
+    });
+  }
+
+  function handleManifest(value) {
+    var mode = videoMode();
+    if (mode === "best") lockAudioBitrate(value);
+    var audio = inspectAudio(value);
+    var video = handleVideo(value, mode);
+    if (audio || video) publishStatus();
+    return audio || video;
+  }
+
+  function mentionsTracks(text) {
+    return text.indexOf("audio_tracks") !== -1 || text.indexOf("audioTracks") !== -1 ||
+      text.indexOf("video_tracks") !== -1 || text.indexOf("videoTracks") !== -1;
   }
 
   var nativeStringify = JSON.stringify;
@@ -231,9 +361,9 @@
   function parse(text, reviver) {
     var result = nativeParse.call(this, text, reviver);
     try {
-      if (result && typeof result === "object" && typeof text === "string" && mentionsAudioTracks(text)) {
-        if (!inspectManifestResponse(result)) {
-          log("response mentions audio tracks but none were read; top-level keys:", Object.keys(result));
+      if (result && typeof result === "object" && typeof text === "string" && mentionsTracks(text)) {
+        if (!handleManifest(result)) {
+          log("response mentions tracks but none were read; top-level keys:", Object.keys(result));
         }
       }
     } catch (err) {
@@ -249,7 +379,7 @@
     window.Response.prototype.json = function () {
       return nativeResponseJson.call(this).then(function (data) {
         try {
-          if (data && typeof data === "object") inspectManifestResponse(data);
+          if (data && typeof data === "object") handleManifest(data);
         } catch (err) {
           log("inspect skipped:", err);
         }

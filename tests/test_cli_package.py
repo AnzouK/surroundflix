@@ -96,8 +96,10 @@ def fake_macos(monkeypatch, tmp_path):
     """Pretend to be macOS; record every Apple tool call and fake its output."""
     calls = []
 
-    def fake_run(cmd, check, capture_output=False, text=False):
+    def fake_run(cmd, check=True, capture_output=False, text=False):
         calls.append(cmd)
+        if cmd[:2] == ["xcrun", "--find"]:
+            return subprocess.CompletedProcess(cmd, 0, stdout="/usr/bin/converter")
         if cmd[:2] == ["xcrun", "safari-web-extension-converter"]:
             project = tmp_path / "work" / "xcode" / "Surroundflix"
             res = project / "Surroundflix" / "Resources"
@@ -137,8 +139,14 @@ def test_dmg_command(tmp_path, fake_macos, capsys):
     out = tmp_path / "out" / "Surroundflix.dmg"
     assert main(["dmg", "--work", str(tmp_path / "work"), "--output", str(out)]) == 0
     tools = [c[0] if c[0] != "xcrun" else c[1] for c in fake_macos]
-    assert tools == ["safari-web-extension-converter", "xcodebuild", "xcodebuild", "hdiutil"]
-    build_cmd = fake_macos[2]
+    assert tools == [
+        "--find",
+        "safari-web-extension-converter",
+        "xcodebuild",
+        "xcodebuild",
+        "hdiutil",
+    ]
+    build_cmd = fake_macos[3]
     assert build_cmd[build_cmd.index("-scheme") + 1] == "Surroundflix"
     assert "CODE_SIGN_IDENTITY=-" in build_cmd
     for cmd in fake_macos:
@@ -158,3 +166,14 @@ def test_requires_xcode(monkeypatch):
     monkeypatch.setattr(package.shutil, "which", lambda tool: None)
     with pytest.raises(RuntimeError, match="Xcode"):
         package._require_macos()
+
+
+def test_command_line_tools_only_gives_the_fix(tmp_path, fake_macos, monkeypatch, capsys):
+    def no_converter(cmd, check=True, capture_output=False, text=False):
+        return subprocess.CompletedProcess(cmd, 72, stdout="", stderr="unable to find utility")
+
+    monkeypatch.setattr(build.subprocess, "run", no_converter)
+    assert main(["dmg", "--work", str(tmp_path / "work"), "--output", str(tmp_path / "o.dmg")]) == 1
+    err = capsys.readouterr().err
+    assert "xcode-select -s /Applications/Xcode.app/Contents/Developer" in err
+    assert "Traceback" not in err

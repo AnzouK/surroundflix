@@ -143,6 +143,16 @@ def popup_markup(strings: dict) -> str:
         '<p id="tab-status" aria-live="polite"></p>',
         f'<p id="tab-status">{best[0]}<strong>Dolby Atmos</strong>{best[1]}</p>',
     )
+    video = strings["tab_video"].split("{quality}")
+    main = main.replace(
+        '<p id="tab-video" hidden></p>',
+        f'<p id="tab-video">{video[0]}<strong>1080p \u00b7 5.8 Mb/s</strong>{video[1]}</p>',
+    )
+    main = main.replace('<option value="auto" ', '<option value="auto" selected ')
+    vrange = strings["tab_video_range"].replace("{min}", "270p").replace("{max}", "1080p")
+    main = main.replace(
+        '<p id="tab-range" class="note" hidden></p>', f'<p id="tab-range" class="note">{vrange}</p>'
+    )
     main = re.sub(r"<img [^>]*>", icon(28), main, count=1)
     return f'<div class="sf-popup">{xhtml(main)}</div>'
 

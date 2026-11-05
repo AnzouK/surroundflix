@@ -22,6 +22,15 @@ legend {
 label { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; cursor: pointer; }
 fieldset:disabled label { cursor: default; opacity: .55; }
 .note { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+fieldset + fieldset, .warn + fieldset { margin-top: 10px; }
+fieldset .note { margin: 6px 0 0; }
+label.select { display: block; cursor: default; padding-top: 2px; }
+select {
+  display: block; width: 100%; margin-top: 4px;
+  font: inherit; color: var(--text); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 4px; padding: 3px 4px;
+}
+.tab #tab-range { margin-top: 2px; }
 .warn { color: var(--text); border-left: 2px solid var(--accent); padding-left: 8px; }
 .tab { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .tab h2 {

@@ -7,7 +7,11 @@ showing Main.html, Style.css and Script.js. This module:
      names, so the Xcode project needs no changes);
   2. patches ViewController.swift so links open in the default browser and
      the page gets the user's system languages;
-  3. lets the app reach the network (GitHub, for the update check).
+  3. lets the app reach the network (GitHub, for the update check);
+  4. makes the extension's bundle identifier start with the app's, which
+     macOS requires (the converter can disagree with itself on the case);
+  5. makes the window resizable and big enough for its content, and keeps
+     the app open after "Open Safari Settings" (Apple's template quits).
 
 Every step is idempotent, so running it twice changes nothing.
 """
@@ -45,6 +49,9 @@ LINK_METHOD = f"""
         decisionHandler(.allow)
     }}
 """
+
+KEEP_OPEN_MARKER = "// surroundflix: keep the app open after opening Safari's settings"
+WINDOW_SIZE = (600, 720)
 
 DID_FINISH = re.compile(
     r"func webView\(_ webView: WKWebView, didFinish navigation: WKNavigation!\)\s*\{"
@@ -107,7 +114,43 @@ def patch_view_controller_source(src: str) -> str:
         end = src.rstrip().rfind("}")
         if end != -1:
             src = src[:end] + LINK_METHOD + src[end:]
+    if KEEP_OPEN_MARKER not in src:
+        src = src.replace("NSApplication.shared.terminate(nil)", KEEP_OPEN_MARKER)
     return src
+
+
+def patch_storyboard_source(xml: str) -> str:
+    """Resizable, minimisable window at WINDOW_SIZE (Apple's is 425 x 325, fixed)."""
+
+    def style(m: re.Match) -> str:
+        attrs = m.group(1)
+        for flag in ("miniaturizable", "resizable"):
+            if f'{flag}="YES"' not in attrs:
+                attrs += f' {flag}="YES"'
+        return f'<windowStyleMask key="styleMask"{attrs}/>'
+
+    xml = re.sub(r'<windowStyleMask key="styleMask"([^/>]*)/>', style, xml)
+    rect = re.search(
+        r'<rect key="contentRect" x="[^"]*" y="[^"]*" width="(\d+)" height="(\d+)"/>', xml
+    )
+    if rect:
+        old = f'width="{rect.group(1)}" height="{rect.group(2)}"'
+        new = f'width="{WINDOW_SIZE[0]}" height="{WINDOW_SIZE[1]}"'
+        # The window's content rect and the view controller's views share Apple's size.
+        xml = xml.replace(old, new)
+    return xml
+
+
+def patch_storyboard(project_dir: Path) -> list[str]:
+    files = _app_files(project_dir, "Main.storyboard")
+    if not files:
+        return ["warning: Main.storyboard not found, the window keeps Apple's fixed size"]
+    before = files[0].read_text("utf-8")
+    after = patch_storyboard_source(before)
+    if after == before:
+        return []
+    files[0].write_text(after, "utf-8")
+    return [f"window made resizable: {files[0].relative_to(project_dir)}"]
 
 
 def patch_view_controller(project_dir: Path) -> list[str]:
@@ -128,9 +171,60 @@ def patch_view_controller(project_dir: Path) -> list[str]:
     return notes
 
 
+# Matches both project formats: `PRODUCT_BUNDLE_IDENTIFIER = id;` in
+# project.pbxproj and `"PRODUCT_BUNDLE_IDENTIFIER": "id",` in project.xcproj.
+BUNDLE_ID = re.compile(r'(PRODUCT_BUNDLE_IDENTIFIER"?\s*[:=]\s*"?)([A-Za-z0-9.\-]+)')
+
+
+def project_files(project_dir: Path) -> list[Path]:
+    return sorted(project_dir.rglob("project.pbxproj")) + sorted(
+        project_dir.rglob("project.xcproj")
+    )
+
+
+def fix_bundle_ids(project_dir: Path) -> list[str]:
+    notes = []
+    for proj in project_files(project_dir):
+        text = proj.read_text("utf-8")
+        ids = [m.group(2) for m in BUNDLE_ID.finditer(text)]
+        apps = {i for i in ids if not i.endswith(".Extension")}
+        exts = {i for i in ids if i.endswith(".Extension")}
+        if len(apps) != 1 or not exts:
+            continue
+        app = apps.pop()
+        wanted = f"{app}.Extension"
+        bad = {e for e in exts if not e.startswith(app + ".")}
+        if not bad:
+            continue
+        proj.write_text(
+            BUNDLE_ID.sub(
+                lambda m, w=wanted, b=bad: m.group(1) + (w if m.group(2) in b else m.group(2)), text
+            ),
+            "utf-8",
+        )
+        for swift in project_dir.rglob("*.swift"):
+            code = swift.read_text("utf-8")
+            fixed = code
+            for old in bad:
+                fixed = fixed.replace(f'"{old}"', f'"{wanted}"')
+            if fixed != code:
+                swift.write_text(fixed, "utf-8")
+        notes.append(f"extension bundle identifier set to {wanted}")
+    return notes
+
+
 def allow_network(project_dir: Path) -> list[str]:
     notes = []
-    for path in _app_files(project_dir, "*.entitlements"):
+    entitlements = _app_files(project_dir, "*.entitlements")
+    if not entitlements:
+        # Newer Xcode templates declare the sandbox in build settings instead.
+        if any(
+            "ENABLE_OUTGOING_NETWORK_CONNECTIONS" in f.read_text("utf-8")
+            for f in project_files(project_dir)
+        ):
+            return ["network access already enabled in the build settings"]
+        return ["warning: no entitlements found; the update check may be blocked by the sandbox"]
+    for path in entitlements:
         with path.open("rb") as fh:
             data = plistlib.load(fh)
         if data.get("com.apple.security.network.client") is True:
@@ -145,7 +239,9 @@ def allow_network(project_dir: Path) -> list[str]:
 def customize_project(project_dir: Path) -> list[str]:
     project_dir = Path(project_dir)
     return (
-        replace_window(project_dir)
+        fix_bundle_ids(project_dir)
+        + replace_window(project_dir)
         + patch_view_controller(project_dir)
+        + patch_storyboard(project_dir)
         + allow_network(project_dir)
     )

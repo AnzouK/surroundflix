@@ -20,7 +20,14 @@ from importlib import resources
 from pathlib import Path
 
 from . import __version__
-from .profiles import DEFAULT_PRESET, NO_DOLBY_PROFILES, PRESETS, resolve
+from .profiles import (
+    DEFAULT_PRESET,
+    DEFAULT_VIDEO_MODE,
+    NO_DOLBY_PROFILES,
+    PRESETS,
+    VIDEO_MODES,
+    resolve,
+)
 
 NETFLIX_MATCH = "https://www.netflix.com/*"
 # Change this once, here, if the repository moves.
@@ -67,22 +74,33 @@ def load_i18n() -> dict:
 
 
 def render_page_script(
-    preset: str = DEFAULT_PRESET, debug: bool = False, check_dolby: bool = False
+    preset: str = DEFAULT_PRESET,
+    debug: bool = False,
+    check_dolby: bool = False,
+    video_quality: str = DEFAULT_VIDEO_MODE,
 ) -> str:
     """Return page.js with the profiles baked in."""
     resolve(preset)
+    if video_quality not in VIDEO_MODES:
+        raise ValueError(
+            f"Unknown video quality '{video_quality}'. Choose one of: {', '.join(VIDEO_MODES)}"
+        )
     config = {
         "version": __version__,
         "preset": preset,
         "presets": PRESETS,
         "noDolbyProfiles": NO_DOLBY_PROFILES,
         "checkDolby": check_dolby,
+        # Default video mode; the extensions' popup overrides it.
+        "videoQuality": video_quality,
         "debug": debug,
     }
     return _fill(_template("page.js"), {"CONFIG": config})
 
 
-def render_userscript(preset: str = DEFAULT_PRESET, debug: bool = False) -> str:
+def render_userscript(
+    preset: str = DEFAULT_PRESET, debug: bool = False, video_quality: str = DEFAULT_VIDEO_MODE
+) -> str:
     header = "\n".join(
         [
             "// ==UserScript==",
@@ -100,7 +118,7 @@ def render_userscript(preset: str = DEFAULT_PRESET, debug: bool = False) -> str:
             "",
         ]
     )
-    return header + "\n" + render_page_script(preset, debug)
+    return header + "\n" + render_page_script(preset, debug, video_quality=video_quality)
 
 
 def shared_js() -> str:
@@ -108,7 +126,14 @@ def shared_js() -> str:
 
 
 def render_popup_script(preset: str, check_dolby: bool) -> str:
-    popup = _fill(_template("popup.js"), {"DEFAULT_PRESET": preset, "CHECK_DOLBY": check_dolby})
+    popup = _fill(
+        _template("popup.js"),
+        {
+            "DEFAULT_PRESET": preset,
+            "CHECK_DOLBY": check_dolby,
+            "DEFAULT_VIDEO_QUALITY": DEFAULT_VIDEO_MODE,
+        },
+    )
     return shared_js() + "\n" + popup
 
 
@@ -181,7 +206,12 @@ def _write_extension(ext_dir: Path, preset: str, debug: bool, chrome: bool) -> N
         (ext_dir / "images" / f"icon-{s}.png").write_bytes(_icon_bytes(s))
 
 
-def build(out_dir: Path, preset: str = DEFAULT_PRESET, debug: bool = False) -> BuildResult:
+def build(
+    out_dir: Path,
+    preset: str = DEFAULT_PRESET,
+    debug: bool = False,
+    video_quality: str = DEFAULT_VIDEO_MODE,
+) -> BuildResult:
     out_dir = Path(out_dir)
     dirs = {
         name: out_dir / name
@@ -193,7 +223,7 @@ def build(out_dir: Path, preset: str = DEFAULT_PRESET, debug: bool = False) -> B
 
     dirs["userscript"].mkdir(parents=True)
     userscript = dirs["userscript"] / "surroundflix.user.js"
-    userscript.write_text(render_userscript(preset, debug), "utf-8")
+    userscript.write_text(render_userscript(preset, debug, video_quality), "utf-8")
 
     _write_extension(dirs["safari-webextension"], preset, debug, chrome=False)
     _write_extension(dirs["chrome-extension"], preset, debug, chrome=True)
@@ -229,6 +259,27 @@ def converter_command(ext_dir: Path, project_dir: Path, bundle_id: str) -> list[
     ]
 
 
+XCODE_SELECT_HELP = (
+    "Apple's converter (safari-web-extension-converter) comes with the full Xcode, "
+    "but the command line is using the Command Line Tools. Install Xcode from the "
+    "App Store, open it once, then run:\n"
+    "  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer && "
+    "sudo xcodebuild -license accept"
+)
+
+
+def require_converter() -> None:
+    """Fail early, with the fix, when xcrun points at the Command Line Tools."""
+    found = subprocess.run(  # nosec B603 B607
+        ["xcrun", "--find", "safari-web-extension-converter"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if found.returncode != 0:
+        raise RuntimeError(XCODE_SELECT_HELP)
+
+
 def make_xcode_project(
     ext_dir: Path, project_dir: Path, bundle_id: str, dry_run: bool = False
 ) -> list[str]:
@@ -241,6 +292,7 @@ def make_xcode_project(
         raise RuntimeError(
             "xcrun not found. Install Xcode from the App Store, then run: xcode-select --install"
         )
+    require_converter()
     subprocess.run(cmd, check=True)  # nosec B603
 
     from .xcode import customize_project
