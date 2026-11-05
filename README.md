@@ -9,7 +9,8 @@
 <a href="https://github.com/AnzouK/surroundflix/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AnzouK/surroundflix/ci.yml?branch=main&label=CI&logo=github" alt="CI status"></a>
 <a href="https://github.com/AnzouK/surroundflix/releases"><img src="https://img.shields.io/github/v/release/AnzouK/surroundflix?include_prereleases&label=release&color=8250df" alt="Latest release"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6c8f2d" alt="License: MIT"></a>
-<img src="https://img.shields.io/badge/macOS-Safari%2016.4%2B-555555?logo=safari&logoColor=white" alt="macOS, Safari 16.4 or later">
+<img src="https://img.shields.io/badge/macOS-Safari%2016.4%2B-2f6f9f?logo=safari&logoColor=white" alt="macOS, Safari 16.4 or later">
+<img src="https://img.shields.io/badge/Chrome-AAC%205.1%20%28experimental%29-2f6f9f?logo=googlechrome&logoColor=white" alt="Chrome: AAC 5.1, experimental">
 <img src="https://img.shields.io/badge/audio-5.1%20%C2%B7%20Atmos-de9a40" alt="Audio: 5.1 and Atmos">
 <img src="https://img.shields.io/badge/interface-3%20languages-c9a227" alt="Interface in 3 languages">
 
