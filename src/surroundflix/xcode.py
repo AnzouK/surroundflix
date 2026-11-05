@@ -24,16 +24,16 @@ from .build import _template, render_app_html, render_app_script
 LANG_MARKER = "// surroundflix: system languages"
 LINK_MARKER = "// surroundflix: open links in the default browser"
 
-LANG_SNIPPET = """
-        {marker}
+LANG_SNIPPET = f"""
+        {LANG_MARKER}
         if let data = try? JSONSerialization.data(withJSONObject: Locale.preferredLanguages),
            let json = String(data: data, encoding: .utf8) {{
             webView.evaluateJavaScript("setPreferredLanguages(\\(json))")
         }}
-""".format(marker=LANG_MARKER)
+"""
 
-LINK_METHOD = """
-    {marker}
+LINK_METHOD = f"""
+    {LINK_MARKER}
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {{
         if navigationAction.navigationType == .linkActivated,
@@ -44,14 +44,20 @@ LINK_METHOD = """
         }}
         decisionHandler(.allow)
     }}
-""".format(marker=LINK_MARKER)
+"""
 
-DID_FINISH = re.compile(r"func webView\(_ webView: WKWebView, didFinish navigation: WKNavigation!\)\s*\{")
+DID_FINISH = re.compile(
+    r"func webView\(_ webView: WKWebView, didFinish navigation: WKNavigation!\)\s*\{"
+)
 
 
 def _app_files(project_dir: Path, name: str) -> list[Path]:
     """Files called `name` that belong to the app, not the extension."""
-    return [p for p in sorted(project_dir.rglob(name)) if "Extension" not in str(p.relative_to(project_dir))]
+    return [
+        p
+        for p in sorted(project_dir.rglob(name))
+        if "Extension" not in str(p.relative_to(project_dir))
+    ]
 
 
 def _nearest(start: Path, name: str, root: Path) -> Path | None:
@@ -96,7 +102,7 @@ def patch_view_controller_source(src: str) -> str:
     if LANG_MARKER not in src:
         m = DID_FINISH.search(src)
         if m:
-            src = src[: m.end()] + LANG_SNIPPET + src[m.end():]
+            src = src[: m.end()] + LANG_SNIPPET + src[m.end() :]
     if LINK_MARKER not in src:
         end = src.rstrip().rfind("}")
         if end != -1:
@@ -113,7 +119,9 @@ def patch_view_controller(project_dir: Path) -> list[str]:
     after = patch_view_controller_source(before)
     notes = []
     if LANG_MARKER not in after:
-        notes.append("warning: didFinish not found, the window will use the default language detection")
+        notes.append(
+            "warning: didFinish not found, the window will use the default language detection"
+        )
     if after != before:
         path.write_text(after, "utf-8")
         notes.append(f"patched {path.relative_to(project_dir)}")
@@ -136,4 +144,8 @@ def allow_network(project_dir: Path) -> list[str]:
 
 def customize_project(project_dir: Path) -> list[str]:
     project_dir = Path(project_dir)
-    return replace_window(project_dir) + patch_view_controller(project_dir) + allow_network(project_dir)
+    return (
+        replace_window(project_dir)
+        + patch_view_controller(project_dir)
+        + allow_network(project_dir)
+    )

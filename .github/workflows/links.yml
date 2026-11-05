@@ -1,0 +1,32 @@
+# Checks every external link in the Markdown files once a week (internal
+# links and anchors are checked by tests/test_docs.py on every push).
+# Image badges are skipped: they only render once the repo is public and
+# has a release. Sites that block bots answer 403/429; those count as up.
+
+name: Links
+
+on:
+  schedule:
+    - cron: "41 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  links:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --accept 200,206,403,429
+            --exclude '^https://img\.shields\.io/'
+            --exclude '^https://github\.com/AnzouK/surroundflix'
+            './**/*.md'
+          fail: true

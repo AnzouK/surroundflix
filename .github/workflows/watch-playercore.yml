@@ -4,7 +4,9 @@
 #
 # Netflix may only show the playercore URL to signed-in pages. If discovery
 # fails, set a repository variable PLAYERCORE_URL (Settings > Secrets and
-# variables > Actions > Variables) to the URL copied from Safari's Network tab.
+# variables > Actions > Variables) to the URL copied from the browser's
+# Network tab. `surroundflix check` only fetches https:// URLs on Netflix's
+# own hosts, whatever the variable contains.
 
 name: Watch Netflix playercore
 
@@ -13,6 +15,10 @@ on:
     - cron: "17 6 * * *"
   workflow_dispatch:
 
+concurrency:
+  group: watch-playercore
+  cancel-in-progress: false
+
 permissions:
   contents: write
   issues: write
@@ -20,9 +26,11 @@ permissions:
 jobs:
   watch:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      # Credentials are kept: the job pushes the updated state file.
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install -e .
@@ -33,9 +41,9 @@ jobs:
           PLAYERCORE_URL: ${{ vars.PLAYERCORE_URL }}
         run: |
           set +e
-          ARGS="--state .github/playercore-state.json --update-state --json"
-          if [ -n "$PLAYERCORE_URL" ]; then ARGS="$ARGS --url $PLAYERCORE_URL"; fi
-          surroundflix check $ARGS > report.json
+          args=(--state .github/playercore-state.json --update-state --json)
+          if [ -n "$PLAYERCORE_URL" ]; then args+=(--url "$PLAYERCORE_URL"); fi
+          surroundflix check "${args[@]}" > report.json
           echo "status=$?" >> "$GITHUB_OUTPUT"
           cat report.json
 
@@ -55,10 +63,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh issue create \
-            --title "Playercore check failed ($(date -u +%F))" \
-            --body "The daily check could not confirm Surroundflix still works.
-
-          \`\`\`json
-          $(cat report.json 2>/dev/null || echo 'no report: discovery failed, set PLAYERCORE_URL')
-          \`\`\`"
+          {
+            echo "The daily check could not confirm Surroundflix still works."
+            echo
+            echo '```json'
+            cat report.json 2>/dev/null || echo "no report: discovery failed, set PLAYERCORE_URL"
+            echo '```'
+          } > body.md
+          gh issue create --title "Playercore check failed ($(date -u +%F))" --body-file body.md

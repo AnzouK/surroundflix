@@ -7,7 +7,8 @@ import json
 import sys
 from pathlib import Path
 
-from . import __version__, build as builder, playercore
+from . import __version__, playercore
+from . import build as builder
 from .profiles import DEFAULT_PRESET, PRESETS
 
 
@@ -55,10 +56,17 @@ def _cmd_check(args: argparse.Namespace) -> int:
     if args.file is None and url is None:
         url = playercore.discover_url()
         if url is None:
-            print("Could not find the playercore URL on netflix.com. Pass --url or --file.", file=sys.stderr)
+            print(
+                "Could not find the playercore URL on netflix.com. Pass --url or --file.",
+                file=sys.stderr,
+            )
             return 2
 
-    report = playercore.load(url=url, file=Path(args.file) if args.file else None)
+    try:
+        report = playercore.load(url=url, file=Path(args.file) if args.file else None)
+    except ValueError as err:
+        print(err, file=sys.stderr)
+        return 2
     out = report.to_dict()
 
     if args.state:
@@ -76,7 +84,11 @@ def _cmd_check(args: argparse.Namespace) -> int:
         if "comparison" in out:
             c = out["comparison"]
             print(f"  changed since last check: {'yes' if c['changed'] else 'no'}")
-        print("OK, Surroundflix should keep working." if report.ok else "Something Surroundflix relies on is gone.")
+        print(
+            "OK, Surroundflix should keep working."
+            if report.ok
+            else "Something Surroundflix relies on is gone."
+        )
     return 0 if report.ok else 1
 
 
@@ -93,11 +105,15 @@ def build_parser() -> argparse.ArgumentParser:
         sp.add_argument("--debug", action="store_true", help="log to the Safari console")
         sp.add_argument("--out", default="dist", help="output folder (default: dist)")
 
-    sp = sub.add_parser("build", help="build the userscript, the Safari and Chrome extensions and the app window")
+    sp = sub.add_parser(
+        "build", help="build the userscript, the Safari and Chrome extensions and the app window"
+    )
     add_build_opts(sp)
     sp.set_defaults(func=_cmd_build)
 
-    sp = sub.add_parser("xcode", help="build, then wrap the extension in an Xcode project (macOS + Xcode)")
+    sp = sub.add_parser(
+        "xcode", help="build, then wrap the extension in an Xcode project (macOS + Xcode)"
+    )
     add_build_opts(sp)
     sp.add_argument("--project", default="build/xcode")
     sp.add_argument("--bundle-id", default="io.github.anzouk.surroundflix")

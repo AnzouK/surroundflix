@@ -20,7 +20,7 @@
   try {
     Promise.resolve(api.storage.local.get("preset")).then(function (stored) {
       setPreset(stored && stored.preset);
-    }, function () {});
+    }, function () { /* no stored choice: page.js uses the default preset */ });
     api.storage.onChanged.addListener(function (changes, area) {
       if (area === "local" && changes.preset) setPreset(changes.preset.newValue);
     });
@@ -34,11 +34,13 @@
       if (!message || message.type !== "surroundflix-status") return false;
       var raw = root.getAttribute("data-surroundflix-status");
       var status = null;
-      try { status = raw ? JSON.parse(raw) : null; } catch (err) {}
+      try { status = raw ? JSON.parse(raw) : null; } catch (err) { /* forged or partial value: report no status */ }
       sendResponse({ active: !!raw, status: status });
       return false;
     });
-  } catch (err) {}
+  } catch (err) {
+    // No messaging API (older browser): the popup just shows no status.
+  }
 
   if (INJECT) {
     var script = document.createElement("script");

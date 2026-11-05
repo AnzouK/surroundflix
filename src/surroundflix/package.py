@@ -12,7 +12,9 @@ from __future__ import annotations
 import json
 import platform
 import shutil
-import subprocess
+
+# Runs Apple's tools (xcrun, xcodebuild, hdiutil) with fixed arguments, never a shell.
+import subprocess  # nosec B404
 from pathlib import Path
 
 from . import __version__
@@ -54,9 +56,11 @@ def _find_project(project_dir: Path) -> Path:
 
 
 def _app_scheme(project: Path) -> str:
-    out = subprocess.run(
+    out = subprocess.run(  # nosec B603 B607
         ["xcodebuild", "-list", "-json", "-project", str(project)],
-        check=True, capture_output=True, text=True,
+        check=True,
+        capture_output=True,
+        text=True,
     ).stdout
     schemes = json.loads(out)["project"]["schemes"]
     for s in schemes:
@@ -75,14 +79,21 @@ def build_app(work_dir: Path, preset: str, bundle_id: str) -> Path:
 
     project = _find_project(project_dir)
     derived = work_dir / "derived"
-    subprocess.run(
+    subprocess.run(  # nosec B603 B607
         [
-            "xcodebuild", "-project", str(project),
-            "-scheme", _app_scheme(project),
-            "-configuration", "Release",
-            "-derivedDataPath", str(derived),
-            "CODE_SIGN_IDENTITY=-", "CODE_SIGN_STYLE=Manual",
-            "DEVELOPMENT_TEAM=", "MARKETING_VERSION=" + __version__,
+            "xcodebuild",
+            "-project",
+            str(project),
+            "-scheme",
+            _app_scheme(project),
+            "-configuration",
+            "Release",
+            "-derivedDataPath",
+            str(derived),
+            "CODE_SIGN_IDENTITY=-",
+            "CODE_SIGN_STYLE=Manual",
+            "DEVELOPMENT_TEAM=",
+            "MARKETING_VERSION=" + __version__,
             "build",
         ],
         check=True,
@@ -108,10 +119,18 @@ def make_dmg(app: Path, userscript: Path, out_file: Path, homepage: str) -> Path
     )
 
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(
+    subprocess.run(  # nosec B603 B607
         [
-            "hdiutil", "create", "-volname", f"Surroundflix {__version__}",
-            "-srcfolder", str(staging), "-ov", "-format", "UDZO", str(out_file),
+            "hdiutil",
+            "create",
+            "-volname",
+            f"Surroundflix {__version__}",
+            "-srcfolder",
+            str(staging),
+            "-ov",
+            "-format",
+            "UDZO",
+            str(out_file),
         ],
         check=True,
     )

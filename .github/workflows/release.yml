@@ -1,38 +1,81 @@
-# Push a tag like v0.1.0 to build the .dmg on a macOS runner and attach it,
-# together with the userscript, to a GitHub release.
-
+# =====================================================================
+# Surroundflix release
+# =====================================================================
+# On a version tag (v1.0.0...): checks that the tag matches the code's
+# version, builds Surroundflix.dmg on a macOS runner plus the userscript
+# and the Chrome zip, writes SHA256SUMS.txt, and publishes the GitHub
+# release with the version's CHANGELOG section as notes.
+#
+# On public repositories, each file also gets a signed build provenance
+# attestation: `gh attestation verify <file> --repo AnzouK/surroundflix`
+# proves it was built by this workflow from this repository.
+# =====================================================================
 name: Release
 
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  dmg:
+  release:
     runs-on: macos-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - run: pip install -e .
-      - run: surroundflix dmg --output release/Surroundflix.dmg
-      - run: cp build/dist/userscript/surroundflix.user.js release/
-      - run: cd build/dist && zip -qr ../../release/surroundflix-chrome.zip chrome-extension
 
-      - uses: actions/upload-artifact@v4
+      - name: Tag matches the code version
+        run: |
+          version=$(python -c "import surroundflix; print(surroundflix.__version__)")
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, code $version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          surroundflix dmg --output release/Surroundflix.dmg
+          cp build/dist/userscript/surroundflix.user.js release/
+          (cd build/dist && zip -qr ../../release/surroundflix-chrome.zip chrome-extension)
+          (cd release && shasum -a 256 Surroundflix.dmg surroundflix.user.js surroundflix-chrome.zip > SHA256SUMS.txt)
+          cat release/SHA256SUMS.txt
+
+      - name: Release notes from the CHANGELOG
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          test -s notes.md || { echo "no CHANGELOG section for $VERSION"; exit 1; }
+          {
+            echo
+            echo "Check a download with \`shasum -a 256 -c SHA256SUMS.txt\`."
+          } >> notes.md
+
+      - name: Build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@v2
         with:
-          name: surroundflix-release
-          path: release/
+          subject-path: |
+            release/Surroundflix.dmg
+            release/surroundflix.user.js
+            release/surroundflix-chrome.zip
 
-      - name: Attach to the GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" release/Surroundflix.dmg release/surroundflix.user.js release/surroundflix-chrome.zip \
-            --title "Surroundflix $GITHUB_REF_NAME" --generate-notes
+          gh release create "$GITHUB_REF_NAME" release/Surroundflix.dmg release/surroundflix.user.js \
+            release/surroundflix-chrome.zip release/SHA256SUMS.txt \
+            --title "Surroundflix $VERSION" --notes-file notes.md --verify-tag

@@ -19,7 +19,10 @@ def test_build_outputs(tmp_path):
     assert "@run-at       document-start" in us
     assert "@inject-into  page" in us
     assert "__SURROUNDFLIX_CONFIG__" not in us
-    assert "@updateURL    https://github.com/AnzouK/surroundflix/releases/latest/download/surroundflix.user.js" in us
+    assert (
+        "@updateURL    https://github.com/AnzouK/surroundflix/releases/latest/download/surroundflix.user.js"
+        in us
+    )
     assert "@downloadURL" in us
 
     for ext in (result.webextension, result.chrome):
@@ -61,7 +64,9 @@ def test_xcode_dry_run_command(tmp_path):
 
 
 SAMPLE_HTML = '<script src="https://assets.nflxext.com/player/html/ffe/cadmium-playercore-6.0051.123.911.js"></script>'
-GOOD_CORE = 'x="heaac-2-dash";w="heaac-5.1-dash";y="ddplus-5.1-dash";z="ddplus-atmos-dash";r={profiles:[]}'
+GOOD_CORE = (
+    'x="heaac-2-dash";w="heaac-5.1-dash";y="ddplus-5.1-dash";z="ddplus-atmos-dash";r={profiles:[]}'
+)
 
 
 def test_find_url_and_version():

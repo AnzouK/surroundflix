@@ -1,6 +1,7 @@
 :root {
-  --bg: #f4f2ee; --text: #23252a; --muted: #5d6169; --line: #dcd8d0; --accent: #a8641a;
+  --bg: #f4f2ee; --text: #23252a; --muted: #5d6169; --line: #dcd8d0; --accent: #985a15;
   accent-color: var(--accent);
+  caret-color: var(--accent);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {

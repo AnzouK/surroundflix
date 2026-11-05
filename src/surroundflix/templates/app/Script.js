@@ -20,7 +20,7 @@ var REPO = /*__SURROUNDFLIX_REPO__*/ "owner/surroundflix";
   // One of the menu values: "auto", "en", "fr", "pt".
   function storedLanguage() {
     var value = "auto";
-    try { value = localStorage.getItem(LANG_KEY) || "auto"; } catch (err) {}
+    try { value = localStorage.getItem(LANG_KEY) || "auto"; } catch (err) { /* storage blocked: automatic language */ }
     if (value.indexOf("pt") === 0) value = "pt";
     return I18N.menu[value] ? value : "auto";
   }
@@ -78,19 +78,9 @@ var REPO = /*__SURROUNDFLIX_REPO__*/ "owner/surroundflix";
     });
     select.value = storedLanguage();
     select.addEventListener("change", function () {
-      try { localStorage.setItem(LANG_KEY, select.value); } catch (err) {}
+      try { localStorage.setItem(LANG_KEY, select.value); } catch (err) { /* not remembered, still applied below */ }
       render();
     });
-  }
-
-  function newer(a, b) {
-    var pa = a.replace(/^v/, "").split(".").map(Number);
-    var pb = b.replace(/^v/, "").split(".").map(Number);
-    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
-      var x = pa[i] || 0, y = pb[i] || 0;
-      if (x !== y) return x > y;
-    }
-    return false;
   }
 
   function checkUpdates() {
@@ -104,8 +94,9 @@ var REPO = /*__SURROUNDFLIX_REPO__*/ "owner/surroundflix";
       if (!res.ok) throw new Error("HTTP " + res.status);
       return res.json();
     }).then(function (release) {
-      lastUpdate = newer(release.tag_name, APP_VERSION)
-        ? { state: "available", version: release.tag_name.replace(/^v/, ""), url: release.html_url }
+      if (!release || !isTrustedReleaseUrl(release.html_url, REPO)) throw new Error("unexpected answer");
+      lastUpdate = isNewerVersion(release.tag_name, APP_VERSION)
+        ? { state: "available", version: String(release.tag_name).replace(/^v/, ""), url: release.html_url }
         : { state: "latest" };
     }).catch(function () {
       lastUpdate = { state: "failed" };

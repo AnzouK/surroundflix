@@ -5,7 +5,7 @@ import plistlib
 
 from surroundflix import xcode
 
-VIEW_CONTROLLER = '''import Cocoa
+VIEW_CONTROLLER = """import Cocoa
 import SafariServices
 import WebKit
 
@@ -29,7 +29,7 @@ class ViewController: NSViewController, WKNavigationDelegate, WKScriptMessageHan
     }
 
 }
-'''
+"""
 
 
 def make_project(tmp_path):
@@ -56,7 +56,11 @@ def test_customize_project(tmp_path):
     assert not [n for n in notes if n.startswith("warning")], notes
 
     html = (app / "Resources" / "Base.lproj" / "Main.html").read_text()
-    assert 'href="../Style.css"' in html and 'src="../Script.js"' in html and 'src="../Icon.png"' in html
+    assert (
+        'href="../Style.css"' in html
+        and 'src="../Script.js"' in html
+        and 'src="../Icon.png"' in html
+    )
     script = (app / "Resources" / "Script.js").read_text()
     assert "pickLang" in script and "window.show" in script and "__SURROUNDFLIX" not in script
 

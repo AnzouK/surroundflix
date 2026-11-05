@@ -5,7 +5,7 @@ import subprocess
 
 import pytest
 
-from surroundflix.build import _i18n_runtime, load_i18n
+from surroundflix.build import load_i18n, shared_js
 
 I18N = load_i18n()
 EN = I18N["strings"]["en"]
@@ -17,7 +17,9 @@ def test_every_language_is_complete(lang):
     assert set(table) == set(EN), f"{lang} keys differ from English"
     for key, text in table.items():
         assert text.strip(), f"{lang}.{key} is empty"
-        assert re.findall(r"\{\w+\}", text) == re.findall(r"\{\w+\}", EN[key]), f"{lang}.{key} placeholders"
+        assert re.findall(r"\{\w+\}", text) == re.findall(r"\{\w+\}", EN[key]), (
+            f"{lang}.{key} placeholders"
+        )
 
 
 def test_language_names_match_tables():
@@ -44,8 +46,10 @@ def test_menu_has_one_portuguese_entry():
     ],
 )
 def test_resolve_lang(choice, prefs, expected):
-    code = _i18n_runtime() + f"\nconsole.log(resolveLang({json.dumps(choice)}, {json.dumps(prefs)}));"
-    out = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True).stdout.strip()
+    code = shared_js() + f"\nconsole.log(resolveLang({json.dumps(choice)}, {json.dumps(prefs)}));"
+    out = subprocess.run(
+        ["node", "-e", code], capture_output=True, text=True, check=True
+    ).stdout.strip()
     assert out == expected
 
 
@@ -75,8 +79,10 @@ def test_angolan_portuguese_keeps_its_spelling():
     ],
 )
 def test_pick_lang(prefs, expected):
-    code = _i18n_runtime() + f"\nconsole.log(pickLang({json.dumps(prefs)}));"
-    out = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True).stdout.strip()
+    code = shared_js() + f"\nconsole.log(pickLang({json.dumps(prefs)}));"
+    out = subprocess.run(
+        ["node", "-e", code], capture_output=True, text=True, check=True
+    ).stdout.strip()
     assert out == expected
 
 
@@ -92,6 +98,8 @@ def test_pick_lang(prefs, expected):
     ],
 )
 def test_best_audio(received, expected):
-    code = _i18n_runtime() + f"\nconsole.log(JSON.stringify(bestAudio({json.dumps(received)})));"
-    out = subprocess.run(["node", "-e", code], capture_output=True, text=True, check=True).stdout.strip()
+    code = shared_js() + f"\nconsole.log(JSON.stringify(bestAudio({json.dumps(received)})));"
+    out = subprocess.run(
+        ["node", "-e", code], capture_output=True, text=True, check=True
+    ).stdout.strip()
     assert json.loads(out) == expected

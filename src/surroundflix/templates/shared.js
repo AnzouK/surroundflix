@@ -1,5 +1,6 @@
-/* Shared by the extension popup and the app window. The builder replaces
- * the placeholder with templates/i18n.json. */
+/* Helpers shared by the extension popup and the app window: translations,
+ * audio format labels and the update check. The builder replaces the
+ * placeholder with templates/i18n.json. */
 var I18N = /*__SURROUNDFLIX_I18N__*/ null;
 
 // Picks the best supported language for a list like navigator.languages.
@@ -57,11 +58,36 @@ var AUDIO_FORMATS = [
 
 // Returns the label of the best multichannel format in a list of profiles,
 // or null when Netflix only sent stereo.
+// The list comes from the page, which Netflix (or another script on it)
+// controls, so anything that isn't an array of strings counts as nothing.
 function bestAudio(profiles) {
+  if (!Array.isArray(profiles)) return null;
   for (var i = 0; i < AUDIO_FORMATS.length; i++) {
-    if ((profiles || []).indexOf(AUDIO_FORMATS[i][0]) !== -1) return AUDIO_FORMATS[i][1];
+    if (profiles.indexOf(AUDIO_FORMATS[i][0]) !== -1) return AUDIO_FORMATS[i][1];
   }
   return null;
+}
+
+// Compares "1.2.10" with "v1.2.9". Pre-release suffixes ("-beta") are
+// ignored; anything unparsable is never "newer".
+function isNewerVersion(candidate, current) {
+  function parts(v) {
+    var m = /^v?(\d+)\.(\d+)(?:\.(\d+))?/.exec(String(v || ""));
+    return m ? [+m[1], +m[2], +(m[3] || 0)] : null;
+  }
+  var a = parts(candidate), b = parts(current);
+  if (!a || !b) return false;
+  for (var i = 0; i < 3; i++) {
+    if (a[i] !== b[i]) return a[i] > b[i];
+  }
+  return false;
+}
+
+// Only links to this repository's releases are shown as "Download", so a
+// tampered API answer can't turn the button into a link elsewhere.
+function isTrustedReleaseUrl(url, repo) {
+  var prefix = "https://github.com/" + repo + "/releases/";
+  return typeof url === "string" && url.indexOf(prefix) === 0 && !/[\s"'<>]/.test(url);
 }
 
 function applyI18n(doc, lang) {

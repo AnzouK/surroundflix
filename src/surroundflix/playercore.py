@@ -15,6 +15,7 @@ import re
 import urllib.request
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from urllib.parse import urlparse
 
 from .profiles import EXPECTED_IN_PLAYERCORE
 
@@ -51,10 +52,34 @@ class Report:
         return d
 
 
+# Only Netflix's own HTTPS hosts are fetched. Without this, a URL given to
+# `check --url` (or the PLAYERCORE_URL variable in CI) could be file:///...
+# and read a local file, or point the job at any server.
+ALLOWED_HOSTS = ("netflix.com", "nflxext.com")
+MAX_DOWNLOAD = 20 * 1024 * 1024  # the playercore is a few MB
+
+
+def validate_url(url: str) -> str:
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not any(
+        host == allowed or host.endswith("." + allowed) for allowed in ALLOWED_HOSTS
+    ):
+        raise ValueError(
+            f"Refusing to fetch {url!r}: only https:// URLs on netflix.com or nflxext.com"
+        )
+    return url
+
+
 def _get(url: str, timeout: int = 30) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
-        return resp.read().decode("utf-8", errors="replace")
+    # validate_url() allows only https on Netflix hosts, so file:// and
+    # other schemes never reach urlopen.
+    req = urllib.request.Request(validate_url(url), headers={"User-Agent": USER_AGENT})  # noqa: S310
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310  # nosec B310
+        data = resp.read(MAX_DOWNLOAD + 1)
+    if len(data) > MAX_DOWNLOAD:
+        raise ValueError(f"{url} is larger than {MAX_DOWNLOAD} bytes")
+    return data.decode("utf-8", errors="replace")
 
 
 def find_playercore_url(html: str) -> str | None:

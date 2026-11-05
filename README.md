@@ -131,6 +131,18 @@ It doesn't touch DRM, accounts or video. The extension only runs on
 `www.netflix.com` and asks for a single permission, `storage`, to remember
 the choice made in its toolbar button.
 
+## Privacy and security
+
+Surroundflix collects nothing and the extension contacts no server; the app
+only asks GitHub for updates when you click the button. Details in
+[PRIVACY.md](PRIVACY.md).
+
+Every push runs security tests (permissions, untrusted page data, network
+destinations, workflow hardening) plus Bandit, pip-audit, gitleaks and
+CodeQL. Releases ship with `SHA256SUMS.txt`; check a download with
+`shasum -a 256 -c SHA256SUMS.txt`. To report a vulnerability, see
+[SECURITY.md](SECURITY.md).
+
 ## Building from source
 
 Python 3.9+. The app and .dmg also need macOS with Xcode.
@@ -141,7 +153,7 @@ cd surroundflix
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-pytest                          # run the tests
+pytest                          # run the tests, security tests included
 surroundflix build              # userscript, Safari and Chrome extensions, app window in dist/
 surroundflix build --debug      # same, with logs in the Safari console
 surroundflix build --preset surround   # 5.1 only, no Atmos request

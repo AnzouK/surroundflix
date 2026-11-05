@@ -74,7 +74,9 @@
   function currentPreset() {
     var root = document.documentElement;
     var chosen = root && root.getAttribute(PRESET_ATTR);
-    return chosen && CONFIG.presets[chosen] ? chosen : CONFIG.preset;
+    // The attribute can be set by any script on the page: accept only our
+    // own preset names (not "constructor", "__proto__"...).
+    return chosen && Object.prototype.hasOwnProperty.call(CONFIG.presets, chosen) ? chosen : CONFIG.preset;
   }
 
   // Read at request time, so a change in the popup applies to the next title.

@@ -1,7 +1,8 @@
 :root {
   --bg: #f4f2ee; --panel: #fbfaf7; --text: #23252a; --muted: #5d6169;
-  --line: #dcd8d0; --accent: #a8641a; --accent-ink: #ffffff; --ok: #3d7a4a;
+  --line: #dcd8d0; --accent: #985a15; --accent-ink: #ffffff; --ok: #3d7a4a;
   accent-color: var(--accent);
+  caret-color: var(--accent);
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {

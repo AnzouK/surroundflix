@@ -16,7 +16,7 @@ var CHECK_DOLBY = /*__SURROUNDFLIX_CHECK_DOLBY__*/ false;
   select(DEFAULT_PRESET);
   Promise.resolve(api.storage.local.get("preset")).then(function (stored) {
     if (stored && stored.preset) select(stored.preset);
-  }, function () {});
+  }, function () { /* storage unavailable: keep the default shown above */ });
 
   for (var i = 0; i < radios.length; i++) {
     radios[i].addEventListener("change", function (event) {
@@ -75,7 +75,9 @@ var CHECK_DOLBY = /*__SURROUNDFLIX_CHECK_DOLBY__*/ false;
   var dolby = !CHECK_DOLBY;
   if (CHECK_DOLBY) try {
     dolby = MediaSource.isTypeSupported('audio/mp4; codecs="ec-3"');
-  } catch (err) {}
+  } catch (err) {
+    // MediaSource missing: treat as no Dolby support.
+  }
   if (!dolby) {
     document.getElementById("presets").disabled = true;
     document.getElementById("no-dolby").hidden = false;
