@@ -1,4 +1,4 @@
-<p align="center"><img src="src/surroundflix/icons/icon-256.png" width="128" alt="Surroundflix icon: five speakers around a listener"></p>
+<p align="center"><img src="assets/icon.svg" width="128" alt="Surroundflix icon: five speakers around a listener"></p>
 
 # Surroundflix
 
@@ -40,12 +40,40 @@ Requires macOS with Safari 16.4 or later.
    a restart. Option B doesn't have this problem.
 4. Safari > Settings > Extensions: enable Surroundflix and allow it on netflix.com.
 
+The app window shows whether the extension is on, checks for updates, and
+is available in English, French and Portuguese (Portugal, Brazil and
+Angola). The Surroundflix button in Safari's toolbar lets you choose
+between **5.1 and Atmos** (default) and **5.1 only**.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="design/app-dark.png">
+    <img src="design/app-light.png" width="420" alt="Surroundflix app window: extension status, setup steps, audio note, language menu and update check">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="design/popup-dark.png">
+    <img src="design/popup-light.png" width="240" alt="Surroundflix toolbar popup: choice between 5.1 and Atmos or 5.1 only">
+  </picture>
+</p>
+
 ### Option B: userscript
 
 1. Install the free [Userscripts](https://apps.apple.com/app/userscripts/id1463298887)
    app and enable it in Safari > Settings > Extensions.
 2. Open `surroundflix.user.js` (in the release, or inside the .dmg) with Userscripts.
 3. Allow it on netflix.com and reload Netflix.
+
+The userscript always asks for 5.1 and Atmos; it has no toolbar button.
+
+### Chrome (experimental)
+
+Chrome has no Dolby decoder, on any system, so no Atmos or Dolby 5.1 there.
+The Chrome build asks Netflix for its AAC 5.1 track instead, on titles that
+still offer one. Whether that reaches AirPods as multichannel depends on
+Chrome and macOS, and isn't confirmed yet.
+
+1. Download `surroundflix-chrome.zip` from the release and unzip it.
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder.
 
 ## Check that it works
 
@@ -71,8 +99,9 @@ Netflix's player, which broke each time Netflix released a new version.
 Surroundflix never modifies or redistributes Netflix code, so it only
 breaks if Netflix changes the request format itself.
 
-It doesn't touch DRM, accounts or video. The extension requests no browser
-permissions and only runs on `www.netflix.com`.
+It doesn't touch DRM, accounts or video. The extension only runs on
+`www.netflix.com` and asks for a single permission, `storage`, to remember
+the choice made in its toolbar button.
 
 ## Building from source
 
@@ -85,7 +114,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
 pytest                          # run the tests
-surroundflix build              # userscript + WebExtension in dist/
+surroundflix build              # userscript, Safari and Chrome extensions, app window in dist/
 surroundflix build --debug      # same, with logs in the Safari console
 surroundflix build --preset surround   # 5.1 only, no Atmos request
 surroundflix dmg                # Surroundflix.app + .dmg in release/
@@ -95,8 +124,18 @@ With a `--debug` build, type `__surroundflix` in the Web Inspector console
 on Netflix: `lastManifestAudio` shows which audio formats Netflix actually
 sent back. Include it when you open an issue.
 
+Open `dist/app/Main.html` in a browser to preview the app window; add
+`?state=on&lang=pt-AO&theme=dark` to try other states, languages and themes.
+
 Pushing a tag like `v0.1.0` builds the .dmg on GitHub's macOS runners and
-attaches it to a release (`.github/workflows/release.yml`).
+attaches it to a release with the userscript and the Chrome extension
+(`.github/workflows/release.yml`).
+
+### Translations
+
+All interface text lives in `src/surroundflix/templates/i18n.json`. To add
+a language, copy the `en` block, translate it, add its name under
+`languages`, and run `pytest` (a test checks that no string is missing).
 
 ## Automatic watch
 
@@ -119,9 +158,13 @@ surroundflix check --url "https://assets.nflxext.com/.../cadmium-playercore-X.js
 ```
 src/surroundflix/
   profiles.py           Netflix audio profile names and presets
-  templates/page.js     the in-page hook (the only part that has to be JavaScript)
-  templates/content.js  loads page.js into the page (Safari extension)
-  build.py              builds the userscript and the Safari WebExtension
+  templates/page.js     the in-page hook that edits Netflix's request
+  templates/content.js  passes the popup choice to page.js (and loads it in Safari)
+  templates/popup.*     the toolbar button
+  templates/app/        the app window (replaces Apple's default one)
+  templates/i18n.json   every interface string, per language
+  build.py              builds the userscript and both extensions
+  xcode.py              customises the Xcode project made by Apple's converter
   package.py            builds the macOS app and the .dmg
   playercore.py         downloads and checks Netflix's player
   cli.py                the `surroundflix` command

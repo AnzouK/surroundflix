@@ -1,8 +1,10 @@
-"""Builds the two distributables from the JS templates.
+"""Builds the distributables from the templates.
 
 dist/
-  userscript/surroundflix.user.js    for the free "Userscripts" Safari app
-  safari-webextension/               feed this to Apple's converter (Xcode)
+  userscript/surroundflix.user.js   for the free "Userscripts" Safari app
+  safari-webextension/              fed to Apple's converter (Xcode)
+  chrome-extension/                 load unpacked in chrome://extensions
+  app/                              the app window (Main.html, Style.css, Script.js)
 """
 
 from __future__ import annotations
@@ -16,12 +18,12 @@ from importlib import resources
 from pathlib import Path
 
 from . import __version__
-from .profiles import DEFAULT_PRESET, resolve
+from .profiles import DEFAULT_PRESET, NO_DOLBY_PROFILES, PRESETS, resolve
 
-CONFIG_PLACEHOLDER = "/*__SURROUNDFLIX_CONFIG__*/ null"
 NETFLIX_MATCH = "https://www.netflix.com/*"
-# Change this once, here, when the repository is public.
-HOMEPAGE = "https://github.com/AnzouK/surroundflix"
+# Change this once, here, if the repository moves.
+REPO = "AnzouK/surroundflix"
+HOMEPAGE = f"https://github.com/{REPO}"
 ICON_SIZES = (48, 96, 128, 256, 512, 1024)
 
 
@@ -29,28 +31,46 @@ ICON_SIZES = (48, 96, 128, 256, 512, 1024)
 class BuildResult:
     userscript: Path
     webextension: Path
+    chrome: Path
+    app: Path
 
 
 def _template(name: str) -> str:
-    return resources.files("surroundflix").joinpath("templates", name).read_text("utf-8")
+    return resources.files("surroundflix").joinpath("templates", *name.split("/")).read_text("utf-8")
 
 
 def _icon_bytes(size: int) -> bytes:
     return resources.files("surroundflix").joinpath("icons", f"icon-{size}.png").read_bytes()
 
 
-def render_page_script(preset: str = DEFAULT_PRESET, debug: bool = False) -> str:
-    """Return page.js with the chosen profiles baked in."""
+def _fill(template: str, values: dict[str, object]) -> str:
+    """Replace `/*__SURROUNDFLIX_KEY__*/ default` placeholders with JSON values."""
+    import re
+
+    for key, value in values.items():
+        pattern = re.compile(r"/\*__SURROUNDFLIX_" + key + r"__\*/ [^;\n]+")
+        if not pattern.search(template):
+            raise RuntimeError(f"template placeholder {key} not found")
+        template = pattern.sub(lambda _m: json.dumps(value, ensure_ascii=False), template, count=1)
+    return template
+
+
+def load_i18n() -> dict:
+    return json.loads(_template("i18n.json"))
+
+
+def render_page_script(preset: str = DEFAULT_PRESET, debug: bool = False, check_dolby: bool = False) -> str:
+    """Return page.js with the profiles baked in."""
+    resolve(preset)
     config = {
         "version": __version__,
         "preset": preset,
-        "profiles": resolve(preset),
+        "presets": PRESETS,
+        "noDolbyProfiles": NO_DOLBY_PROFILES,
+        "checkDolby": check_dolby,
         "debug": debug,
     }
-    template = _template("page.js")
-    if CONFIG_PLACEHOLDER not in template:
-        raise RuntimeError("page.js template is missing the config placeholder")
-    return template.replace(CONFIG_PLACEHOLDER, json.dumps(config))
+    return _fill(_template("page.js"), {"CONFIG": config})
 
 
 def render_userscript(preset: str = DEFAULT_PRESET, debug: bool = False) -> str:
@@ -72,49 +92,85 @@ def render_userscript(preset: str = DEFAULT_PRESET, debug: bool = False) -> str:
     return header + "\n" + render_page_script(preset, debug)
 
 
-def render_manifest() -> dict:
-    return {
+def _i18n_runtime() -> str:
+    return _fill(_template("i18n-runtime.js"), {"I18N": load_i18n()})
+
+
+def render_popup_script(preset: str, check_dolby: bool) -> str:
+    popup = _fill(_template("popup.js"), {"DEFAULT_PRESET": preset, "CHECK_DOLBY": check_dolby})
+    return _i18n_runtime() + "\n" + popup
+
+
+def render_app_script() -> str:
+    app = _fill(_template("app/Script.js"), {"VERSION": __version__, "REPO": REPO})
+    return _i18n_runtime() + "\n" + app
+
+
+def render_app_html(style: str = "Style.css", script: str = "Script.js", icon: str = "Icon.png") -> str:
+    html = _template("app/Main.html")
+    return html.replace("{{STYLE}}", style).replace("{{SCRIPT}}", script).replace("{{ICON}}", icon)
+
+
+def render_manifest(chrome: bool = False) -> dict:
+    manifest: dict = {
         "manifest_version": 3,
         "name": "Surroundflix",
         "version": __version__,
-        "description": "Ask Netflix for its 5.1 / Atmos audio tracks in Safari.",
+        "description": "Ask Netflix for its 5.1 / Atmos audio tracks.",
         "homepage_url": HOMEPAGE,
-        "icons": {str(s): f"images/icon-{s}.png" for s in ICON_SIZES},
-        # No "permissions" at all: the extension only runs on netflix.com.
-        "content_scripts": [
-            {
-                "matches": [NETFLIX_MATCH],
-                "js": ["content.js"],
-                "run_at": "document_start",
-                "all_frames": False,
-            }
-        ],
-        "web_accessible_resources": [
-            {"resources": ["page.js"], "matches": [NETFLIX_MATCH]}
-        ],
+        "icons": {str(s): f"images/icon-{s}.png" for s in ICON_SIZES if s <= 512},
+        "action": {"default_popup": "popup.html", "default_icon": {"48": "images/icon-48.png", "96": "images/icon-96.png"}},
+        # Only "storage", for the popup's audio choice. Runs on netflix.com only.
+        "permissions": ["storage"],
     }
+    if chrome:
+        manifest["content_scripts"] = [
+            {"matches": [NETFLIX_MATCH], "js": ["content.js"], "run_at": "document_start"},
+            {"matches": [NETFLIX_MATCH], "js": ["page.js"], "run_at": "document_start", "world": "MAIN"},
+        ]
+    else:
+        manifest["content_scripts"] = [
+            {"matches": [NETFLIX_MATCH], "js": ["content.js"], "run_at": "document_start", "all_frames": False}
+        ]
+        manifest["web_accessible_resources"] = [{"resources": ["page.js"], "matches": [NETFLIX_MATCH]}]
+    return manifest
 
 
-def build(out_dir: Path, preset: str = DEFAULT_PRESET, debug: bool = False) -> BuildResult:
-    out_dir = Path(out_dir)
-    us_dir = out_dir / "userscript"
-    ext_dir = out_dir / "safari-webextension"
-    for d in (us_dir, ext_dir):
-        if d.exists():
-            shutil.rmtree(d)
-        d.mkdir(parents=True)
-
-    userscript = us_dir / "surroundflix.user.js"
-    userscript.write_text(render_userscript(preset, debug), "utf-8")
-
-    (ext_dir / "page.js").write_text(render_page_script(preset, debug), "utf-8")
-    (ext_dir / "content.js").write_text(_template("content.js"), "utf-8")
-    (ext_dir / "manifest.json").write_text(json.dumps(render_manifest(), indent=2) + "\n", "utf-8")
+def _write_extension(ext_dir: Path, preset: str, debug: bool, chrome: bool) -> None:
+    ext_dir.mkdir(parents=True)
+    (ext_dir / "page.js").write_text(render_page_script(preset, debug, check_dolby=chrome), "utf-8")
+    (ext_dir / "content.js").write_text(_fill(_template("content.js"), {"INJECT": not chrome}), "utf-8")
+    (ext_dir / "popup.html").write_text(_template("popup.html"), "utf-8")
+    (ext_dir / "popup.css").write_text(_template("popup.css"), "utf-8")
+    (ext_dir / "popup.js").write_text(render_popup_script(preset, check_dolby=chrome), "utf-8")
+    (ext_dir / "manifest.json").write_text(json.dumps(render_manifest(chrome), indent=2) + "\n", "utf-8")
     (ext_dir / "images").mkdir()
     for s in ICON_SIZES:
         (ext_dir / "images" / f"icon-{s}.png").write_bytes(_icon_bytes(s))
 
-    return BuildResult(userscript=userscript, webextension=ext_dir)
+
+def build(out_dir: Path, preset: str = DEFAULT_PRESET, debug: bool = False) -> BuildResult:
+    out_dir = Path(out_dir)
+    dirs = {name: out_dir / name for name in ("userscript", "safari-webextension", "chrome-extension", "app")}
+    for d in dirs.values():
+        if d.exists():
+            shutil.rmtree(d)
+
+    dirs["userscript"].mkdir(parents=True)
+    userscript = dirs["userscript"] / "surroundflix.user.js"
+    userscript.write_text(render_userscript(preset, debug), "utf-8")
+
+    _write_extension(dirs["safari-webextension"], preset, debug, chrome=False)
+    _write_extension(dirs["chrome-extension"], preset, debug, chrome=True)
+
+    app = dirs["app"]
+    app.mkdir(parents=True)
+    (app / "Main.html").write_text(render_app_html(icon="Icon.png"), "utf-8")
+    (app / "Style.css").write_text(_template("app/Style.css"), "utf-8")
+    (app / "Script.js").write_text(render_app_script(), "utf-8")
+    (app / "Icon.png").write_bytes(_icon_bytes(256))
+
+    return BuildResult(userscript, dirs["safari-webextension"], dirs["chrome-extension"], app)
 
 
 def converter_command(ext_dir: Path, project_dir: Path, bundle_id: str) -> list[str]:
@@ -138,4 +194,9 @@ def make_xcode_project(ext_dir: Path, project_dir: Path, bundle_id: str, dry_run
     if shutil.which("xcrun") is None:
         raise RuntimeError("xcrun not found. Install Xcode from the App Store, then run: xcode-select --install")
     subprocess.run(cmd, check=True)
+
+    from .xcode import customize_project
+
+    for note in customize_project(Path(project_dir)):
+        print(note)
     return cmd

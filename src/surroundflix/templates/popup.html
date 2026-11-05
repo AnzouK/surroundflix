@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Surroundflix</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<main>
+  <header>
+    <img src="images/icon-96.png" width="28" height="28" alt="">
+    <strong>Surroundflix</strong>
+  </header>
+  <fieldset id="presets">
+    <legend data-i18n="audio">Audio</legend>
+    <label><input type="radio" name="preset" value="atmos"> <span data-i18n="preset_atmos"></span></label>
+    <label><input type="radio" name="preset" value="surround"> <span data-i18n="preset_surround"></span></label>
+  </fieldset>
+  <p class="note" data-i18n="apply_hint"></p>
+  <p class="note warn" id="no-dolby" hidden data-i18n="no_dolby"></p>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>

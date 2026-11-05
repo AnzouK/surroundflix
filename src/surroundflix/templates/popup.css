@@ -1,0 +1,26 @@
+:root {
+  --bg: #f4f2ee; --text: #23252a; --muted: #5d6169; --line: #dcd8d0; --accent: #a8641a;
+  accent-color: var(--accent);
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1b1d21; --text: #e8e6e1; --muted: #a3a7ae; --line: #353940; --accent: #de9a40; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; width: 300px; background: var(--bg); color: var(--text);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+}
+main { padding: 14px 16px; }
+header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 15px; }
+fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 0; padding: 8px 12px 10px; }
+legend {
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; padding: 0 4px;
+}
+label { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; cursor: pointer; }
+fieldset:disabled label { cursor: default; opacity: .55; }
+.note { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+.warn { color: var(--text); border-left: 2px solid var(--accent); padding-left: 8px; }
+::selection { background: var(--accent); color: var(--bg); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

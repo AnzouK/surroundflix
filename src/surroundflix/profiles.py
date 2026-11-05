@@ -23,6 +23,11 @@ PRESETS: dict[str, list[str]] = {
 
 DEFAULT_PRESET = "atmos"
 
+# Browsers without a Dolby decoder (Chrome) get Netflix's AAC 5.1 instead,
+# on titles that still offer it.
+HEAAC_51 = "heaac-5.1-dash"
+NO_DOLBY_PROFILES = [HEAAC_51]
+
 # Strings the static playercore check expects to find. If Netflix renames
 # or drops these, the injected profiles would be ignored.
 EXPECTED_IN_PLAYERCORE = [DDPLUS_51, DDPLUS_ATMOS, "heaac-2-dash", "profiles"]

@@ -20,14 +20,28 @@ def test_build_outputs(tmp_path):
     assert "@inject-into  page" in us
     assert "__SURROUNDFLIX_CONFIG__" not in us
 
-    manifest = json.loads((result.webextension / "manifest.json").read_text())
-    assert manifest["manifest_version"] == 3
-    assert "permissions" not in manifest
-    assert manifest["content_scripts"][0]["run_at"] == "document_start"
-    for f in ("content.js", "page.js"):
-        assert (result.webextension / f).exists()
-    for path in manifest["icons"].values():
-        assert (result.webextension / path).stat().st_size > 0
+    for ext in (result.webextension, result.chrome):
+        manifest = json.loads((ext / "manifest.json").read_text())
+        assert manifest["manifest_version"] == 3
+        assert manifest["permissions"] == ["storage"]
+        assert manifest["action"]["default_popup"] == "popup.html"
+        for f in ("content.js", "page.js", "popup.html", "popup.js", "popup.css"):
+            assert (ext / f).exists()
+        for path in manifest["icons"].values():
+            assert (ext / path).stat().st_size > 0
+        for f in ext.glob("*.js"):
+            assert "__SURROUNDFLIX_" not in f.read_text(), f
+
+    safari = json.loads((result.webextension / "manifest.json").read_text())
+    assert "world" not in json.dumps(safari["content_scripts"])
+    assert "INJECT = true" in (result.webextension / "content.js").read_text()
+    chrome = json.loads((result.chrome / "manifest.json").read_text())
+    assert any(cs.get("world") == "MAIN" for cs in chrome["content_scripts"])
+    assert "INJECT = false" in (result.chrome / "content.js").read_text()
+    assert '"checkDolby": true' in (result.chrome / "page.js").read_text()
+
+    for f in ("Main.html", "Style.css", "Script.js", "Icon.png"):
+        assert (result.app / f).exists()
 
 
 def test_dmg_refuses_off_macos(monkeypatch, tmp_path):

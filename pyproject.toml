@@ -28,7 +28,7 @@ surroundflix = "surroundflix.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-surroundflix = ["templates/*.js", "icons/*.png"]
+surroundflix = ["templates/*", "templates/app/*", "icons/*.png"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

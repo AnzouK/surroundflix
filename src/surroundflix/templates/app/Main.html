@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Surroundflix</title>
+<link rel="stylesheet" href="{{STYLE}}">
+</head>
+<body>
+<main class="window">
+  <header>
+    <img src="{{ICON}}" width="64" height="64" alt="Surroundflix icon">
+    <div>
+      <h1>Surroundflix</h1>
+      <div class="version" id="version"></div>
+    </div>
+  </header>
+
+  <div class="status" id="status">
+    <span><span class="dot" aria-hidden="true"></span><strong id="status-text" data-i18n="status_checking" aria-live="polite"></strong></span>
+    <button type="button" id="open-settings" data-i18n="open_settings"></button>
+  </div>
+
+  <section>
+    <h2 data-i18n="setup"></h2>
+    <ol id="steps">
+      <li data-i18n="step_1"></li>
+      <li data-i18n="step_2"></li>
+      <li data-i18n="step_3"></li>
+    </ol>
+    <p id="all-set" hidden data-i18n="all_set"></p>
+  </section>
+
+  <section>
+    <h2 data-i18n="audio"></h2>
+    <p data-i18n="audio_where"></p>
+    <p class="note" data-i18n="atmos_note"></p>
+  </section>
+
+  <footer>
+    <div class="row">
+      <a id="repo-link" href="#">GitHub</a>
+      <label class="lang"><span data-i18n="language"></span>
+        <select id="language"></select>
+      </label>
+    </div>
+    <div class="row">
+      <span class="note" id="update-result" aria-live="polite"></span>
+      <button type="button" class="plain" id="check-updates" data-i18n="updates_check"></button>
+    </div>
+  </footer>
+</main>
+<script src="{{SCRIPT}}"></script>
+</body>
+</html>

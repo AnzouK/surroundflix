@@ -22,6 +22,8 @@ def _cmd_build(args: argparse.Namespace) -> int:
     result = builder.build(Path(args.out), preset=args.preset, debug=args.debug)
     print(f"Userscript:          {result.userscript}")
     print(f"Safari WebExtension: {result.webextension}")
+    print(f"Chrome extension:    {result.chrome}")
+    print(f"App window preview:  {result.app / 'Main.html'}")
     return 0
 
 
