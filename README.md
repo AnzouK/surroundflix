@@ -8,7 +8,7 @@
 
 <a href="https://github.com/AnzouK/surroundflix/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/AnzouK/surroundflix/ci.yml?branch=main&label=CI&logo=github" alt="CI status"></a>
 <a href="https://github.com/AnzouK/surroundflix/releases"><img src="https://img.shields.io/github/v/release/AnzouK/surroundflix?include_prereleases&label=release&color=8250df" alt="Latest release"></a>
-<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6c8f2d" alt="License: MIT"></a>
+<a href="https://github.com/AnzouK/surroundflix#AGPL-3.0-1-ov-file"><img src="https://img.shields.io/badge/License-AGPL--3.0-6c8f2d" alt="License: AGPL-3.0"></a>
 <img src="https://img.shields.io/badge/macOS-Safari%2016.4%2B-2f6f9f?logo=safari&logoColor=white" alt="macOS, Safari 16.4 or later">
 <img src="https://img.shields.io/badge/Chrome-AAC%205.1%20%28experimental%29-2f6f9f?logo=googlechrome&logoColor=white" alt="Chrome: AAC 5.1, experimental">
 <img src="https://img.shields.io/badge/audio-5.1%20%C2%B7%20Atmos-de9a40" alt="Audio: 5.1 and Atmos">
@@ -65,8 +65,7 @@ Requires macOS with Safari 16.4 or later.
 4. Safari > Settings > Extensions: enable Surroundflix and allow it on netflix.com.
 
 The app window shows whether the extension is on, checks for updates, and
-is available in English, French and Portuguese (Portugal, Brazil and
-Angola). The Surroundflix button in Safari's toolbar lets you choose
+is available in English, French and Portuguese. The Surroundflix button in Safari's toolbar lets you choose
 between **5.1 and Atmos** (default) and **5.1 only**.
 
 <p align="center">
@@ -219,4 +218,8 @@ bypass DRM or unlock anything your plan doesn't already include.
 
 ## License
 
-MIT
+[AGPL-3.0 license](https://github.com/AnzouK/surroundflix#AGPL-3.0-1-ov-file). Copyright (c) 2026 AnzouK.
+
+You can use, study and modify Surroundflix. If you distribute it, or a
+modified version, or run a modified version as a service, you must publish
+the full source under the same license.

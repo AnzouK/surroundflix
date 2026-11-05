@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Get Netflix's Dolby 5.1 and Atmos audio in Safari on macOS, with Spatial Audio on AirPods; experimental AAC 5.1 in Chrome."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = { text = "AGPL-3.0-only" }
 authors = [{ name = "AnzouK" }]
 keywords = ["netflix", "safari", "chrome", "dolby", "atmos", "spatial-audio", "macos", "userscript"]
 classifiers = [
