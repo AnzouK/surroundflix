@@ -12,6 +12,11 @@ def test_unknown_preset_raises():
         resolve("dts")
 
 
+def test_unknown_video_quality_raises():
+    with pytest.raises(ValueError):
+        build.render_page_script(video_quality="8k")
+
+
 def test_build_outputs(tmp_path):
     result = build.build(tmp_path)
     us = result.userscript.read_text()

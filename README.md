@@ -66,8 +66,23 @@ Requires macOS with Safari 16.4 or later.
 
 The app window shows whether the extension is on, checks for updates, and
 is available in English, French and Portuguese. The Surroundflix button in Safari's toolbar lets you choose
-between **5.1 and Atmos** (default) and **5.1 only**, and shows under
-"On this tab" the best audio Netflix actually sent for the current title.
+between **5.1 and Atmos** (default) and **5.1 only**, sets the video
+quality, and shows under "On this tab" the best audio and the video quality
+Netflix sent for the current title.
+
+| Video quality | What it does |
+| --- | --- |
+| Automatic (default) | Netflix picks, as without Surroundflix |
+| At least 720p / 1080p / 4K | Netflix still adapts to your connection, but never below that resolution |
+| Always the best | Only Netflix's best video stream, and the highest bitrate of each audio format |
+| Data saver (720p max) | Never above 720p, for hotspots and capped plans |
+
+These modes remove streams from the list Netflix's player picks from; the
+player itself is untouched. If a title doesn't reach a minimum, its best
+streams are kept, so playback never breaks. Anything above Automatic needs
+a fast, stable connection, or playback pauses to buffer instead of lowering
+the quality. Netflix caps Chrome at 1080p (software DRM); Safari can reach
+4K HDR on a Premium plan with a compatible Mac and screen.
 
 <p align="center">
   <img src="design/showcase.svg" width="720" alt="Surroundflix app window (extension status, setup steps, audio note, language menu, update check) next to the toolbar popup (choice between 5.1 and Atmos or 5.1 only, and the best audio Netflix sent: Dolby Atmos)">
@@ -80,8 +95,9 @@ between **5.1 and Atmos** (default) and **5.1 only**, and shows under
 2. Open `surroundflix.user.js` (in the release, or inside the .dmg) with Userscripts.
 3. Allow it on netflix.com and reload Netflix.
 
-Userscripts updates it automatically when a new release is out. The
-userscript is for Safari only and always asks for 5.1 and Atmos; it
+Userscripts updates it automatically when a new release is out. To set a video
+mode for the userscript, build it with, for example,
+`surroundflix build --video-quality min1080`. The userscript is for Safari only and always asks for 5.1 and Atmos; it
 has no toolbar button. In Chrome, use the Chrome extension below.
 
 ### Chrome (experimental)
@@ -138,7 +154,10 @@ CodeQL. Releases ship with `SHA256SUMS.txt`; check a download with
 
 ## Building from source
 
-Python 3.9+. The app and .dmg also need macOS with Xcode.
+Python 3.9+. The app and .dmg also need macOS with the full Xcode (the
+Command Line Tools alone don't include Apple's extension converter). After
+installing Xcode, open it once, then run
+`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`.
 
 ```bash
 git clone https://github.com/AnzouK/surroundflix.git

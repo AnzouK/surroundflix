@@ -5,6 +5,15 @@ section matching the tag as the release notes.
 
 ## [Unreleased]
 
+### Added
+
+- Video quality menu in the toolbar popup: Automatic (default), At least
+  720p, At least 1080p, At least 4K, Always the best, Data saver (720p max). Streams
+  outside the choice are removed from the list Netflix's player picks from.
+  "Always the best" also keeps the highest bitrate of each audio format.
+  The popup shows the video Netflix sent and the range it offers.
+  Userscript: `surroundflix build --video-quality <mode>`.
+
 ## [0.1.0]
 
 First version, not released publicly.

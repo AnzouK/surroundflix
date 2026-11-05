@@ -15,10 +15,10 @@ pytestmark = pytest.mark.skipif(node is None, reason="node is not installed")
 
 HARNESS = r"""
 globalThis.window = globalThis;
-const ATTR = %(attr)s;
+const ATTRS = %(attrs)s;
 globalThis.__attrs = {};
 globalThis.document = { documentElement: {
-  getAttribute: () => ATTR,
+  getAttribute: (k) => (k in ATTRS ? ATTRS[k] : null),
   setAttribute: (k, v) => { globalThis.__attrs[k] = v; } } };
 globalThis.MediaSource = { isTypeSupported: (t) => %(dolby)s && t.includes("ec-3") };
 %(script)s
@@ -49,12 +49,25 @@ out.status = JSON.parse(globalThis.__attrs["data-surroundflix-status"]);
 """
 
 
-def run(preset="atmos", attr=None, dolby=True, check_dolby=False, extra=""):
+def run(
+    preset="atmos",
+    attr=None,
+    dolby=True,
+    check_dolby=False,
+    extra="",
+    video=None,
+    built_video="auto",
+):
+    attrs = {}
+    if attr is not None:
+        attrs["data-surroundflix-preset"] = attr
+    if video is not None:
+        attrs["data-surroundflix-video"] = video
     code = HARNESS % {
         "extra": extra,
-        "attr": json.dumps(attr),
+        "attrs": json.dumps(attrs),
         "dolby": "true" if dolby else "false",
-        "script": render_page_script(preset, check_dolby=check_dolby),
+        "script": render_page_script(preset, check_dolby=check_dolby, video_quality=built_video),
     }
     proc = subprocess.run([node, "-e", code], capture_output=True, text=True, check=True)
     return json.loads(proc.stdout.strip().splitlines()[-1])
@@ -151,3 +164,80 @@ def test_video_profiles_are_ignored():
     out.mixed = window.__surroundflix.lastManifestAudio;
     """
     assert run(extra=extra)["mixed"] == ["ddplus-5.1-dash"]
+
+
+VIDEO = """
+    const manifest = {result: {
+      audio_tracks: [{streams: [
+        {content_profile: "ddplus-5.1-dash", bitrate: 384},
+        {content_profile: "ddplus-5.1-dash", bitrate: 640},
+        {content_profile: "ddplus-atmos-dash", bitrate: 448}]}],
+      video_tracks: [{streams: [
+        {content_profile: "hevc-main10", bitrate: 235, res_h: 270},
+        {content_profile: "hevc-main10", bitrate: 5800, res_h: 1080},
+        {content_profile: "hevc-main10", bitrate: 3000, res_h: 720},
+        {content_profile: "hevc-main10", bitrate: 1050, res_h: 540}]}]}};
+    const parsed = JSON.parse(JSON.stringify(manifest));
+    out.kept = parsed.result.video_tracks[0].streams.map(s => s.res_h);
+    out.audioKept = parsed.result.audio_tracks[0].streams.map(s => s.bitrate);
+    out.video = window.__surroundflix.lastManifestVideo;
+    out.videoStatus = JSON.parse(globalThis.__attrs["data-surroundflix-status"]).video;
+"""
+
+
+@pytest.mark.parametrize(
+    "mode,kept",
+    [
+        ("auto", [270, 1080, 720, 540]),
+        ("min720", [1080, 720]),
+        ("min1080", [1080]),
+        ("min2160", [1080]),  # no 4K offered: the tallest streams are kept
+        ("best", [1080]),
+        ("saver720", [270, 720, 540]),
+    ],
+)
+def test_video_modes(mode, kept):
+    out = run(extra=VIDEO, video=mode)
+    assert out["kept"] == kept
+    assert out["video"]["mode"] == mode
+    assert (out["video"]["minHeight"], out["video"]["maxHeight"]) == (270, 1080)
+    assert out["videoStatus"]["height"] == max(kept)
+
+
+def test_auto_is_the_default_and_touches_nothing():
+    out = run(extra=VIDEO)
+    assert out["kept"] == [270, 1080, 720, 540]
+    assert out["audioKept"] == [384, 640, 448]
+
+
+def test_best_also_keeps_the_top_bitrate_of_each_audio_format():
+    # 5.1 keeps 640 (not 384); Atmos is another format and stays.
+    assert run(extra=VIDEO, video="best")["audioKept"] == [640, 448]
+
+
+@pytest.mark.parametrize("value", ["", "1", "max", "constructor", "__proto__", "BEST"])
+def test_unknown_video_values_mean_automatic(value):
+    assert run(extra=VIDEO, video=value)["kept"] == [270, 1080, 720, 540]
+
+
+def test_userscript_build_sets_the_default_mode():
+    assert run(extra=VIDEO, built_video="min1080")["kept"] == [1080]
+    # An explicit popup choice wins over the build default.
+    assert run(extra=VIDEO, built_video="min1080", video="auto")["kept"] == [270, 1080, 720, 540]
+
+
+def test_a_floor_above_every_stream_keeps_the_tallest():
+    extra = """
+    const m = {result: {video_tracks: [{streams: [
+      {bitrate: 500, res_h: 480}, {bitrate: 900, res_h: 576}, {bitrate: 700, res_h: 576}]}]}};
+    out.kept = JSON.parse(JSON.stringify(m)).result.video_tracks[0].streams.map(s => s.bitrate);
+    """
+    assert run(extra=extra, video="min1080")["kept"] == [900, 700]
+
+
+def test_video_without_sizes_or_bitrates_is_left_alone():
+    extra = """
+    const m = {result: {video_tracks: [{streams: [{bitrate: 500}, {bitrate: 900, res_h: 1080}, {x: 1}]}]}};
+    out.kept = JSON.parse(JSON.stringify(m)).result.video_tracks[0].streams.length;
+    """
+    assert run(extra=extra, video="min720")["kept"] == 3

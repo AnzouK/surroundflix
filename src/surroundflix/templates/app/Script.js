@@ -127,6 +127,15 @@ var REPO = /*__SURROUNDFLIX_REPO__*/ "owner/surroundflix";
   $("check-updates").addEventListener("click", checkUpdates);
   buildLanguageMenu();
 
+  // Back from Safari's settings: reload, so Swift reports the new state.
+  if (bridge) {
+    var leftAt = 0;
+    window.addEventListener("blur", function () { leftAt = Date.now(); });
+    window.addEventListener("focus", function () {
+      if (leftAt && Date.now() - leftAt > 1000) location.reload();
+    });
+  }
+
   if (!bridge) {
     if (query.get("theme")) document.documentElement.setAttribute("data-theme", query.get("theme"));
     if (query.get("state")) enabled = query.get("state") === "on";

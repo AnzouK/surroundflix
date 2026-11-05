@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import __version__, playercore
 from . import build as builder
-from .profiles import DEFAULT_PRESET, PRESETS
+from .profiles import DEFAULT_PRESET, DEFAULT_VIDEO_MODE, PRESETS, VIDEO_MODES
 
 
 def _cmd_presets(args: argparse.Namespace) -> int:
@@ -20,7 +20,9 @@ def _cmd_presets(args: argparse.Namespace) -> int:
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
-    result = builder.build(Path(args.out), preset=args.preset, debug=args.debug)
+    result = builder.build(
+        Path(args.out), preset=args.preset, debug=args.debug, video_quality=args.video_quality
+    )
     print(f"Userscript:          {result.userscript}")
     print(f"Safari WebExtension: {result.webextension}")
     print(f"Chrome extension:    {result.chrome}")
@@ -103,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
     def add_build_opts(sp: argparse.ArgumentParser) -> None:
         sp.add_argument("--preset", default=DEFAULT_PRESET, choices=sorted(PRESETS))
         sp.add_argument("--debug", action="store_true", help="log to the Safari console")
+        sp.add_argument(
+            "--video-quality",
+            default=DEFAULT_VIDEO_MODE,
+            choices=VIDEO_MODES,
+            help="userscript only: video mode (the extensions have a menu in their popup)",
+        )
         sp.add_argument("--out", default="dist", help="output folder (default: dist)")
 
     sp = sub.add_parser(
@@ -116,13 +124,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_build_opts(sp)
     sp.add_argument("--project", default="build/xcode")
-    sp.add_argument("--bundle-id", default="io.github.anzouk.surroundflix")
+    sp.add_argument("--bundle-id", default="io.github.anzouk.Surroundflix")
     sp.add_argument("--dry-run", action="store_true", help="only print the xcrun command")
     sp.set_defaults(func=_cmd_xcode)
 
     sp = sub.add_parser("dmg", help="build Surroundflix.app and a .dmg (macOS + Xcode)")
     sp.add_argument("--preset", default=DEFAULT_PRESET, choices=sorted(PRESETS))
-    sp.add_argument("--bundle-id", default="io.github.anzouk.surroundflix")
+    sp.add_argument("--bundle-id", default="io.github.anzouk.Surroundflix")
     sp.add_argument("--work", default="build", help="scratch folder (default: build)")
     sp.add_argument("--output", default=f"release/Surroundflix-{__version__}.dmg")
     sp.set_defaults(func=_cmd_dmg)
@@ -139,7 +147,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return args.func(args)
+    try:
+        return args.func(args)
+    except RuntimeError as err:
+        # Setup problems (no Xcode, wrong xcode-select...): the message says
+        # what to do, a traceback would only hide it.
+        print(f"surroundflix: {err}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

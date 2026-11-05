@@ -41,7 +41,20 @@
       "tab_none": "Open Netflix to see which audio it sends.",
       "tab_waiting": "Surroundflix is active. Start a title to see which audio Netflix sends.",
       "tab_best": "Best audio Netflix sent: {format}",
-      "tab_stereo": "Netflix only sent stereo for this title."
+      "tab_stereo": "Netflix only sent stereo for this title.",
+      "audio_video": "Audio and video",
+      "video": "Video",
+      "tab_video": "Video: {quality}",
+      "app_video_where": "The same button sets the video quality: automatic, a minimum resolution, always the best, or data saver.",
+      "video_quality": "Quality",
+      "video_auto": "Automatic (Netflix decides)",
+      "video_min720": "At least 720p",
+      "video_min1080": "At least 1080p",
+      "video_min2160": "At least 4K (2160p)",
+      "video_best": "Always the best",
+      "video_saver": "Data saver (720p max)",
+      "video_hint": "Settings above Automatic need a fast, stable connection, or playback pauses to buffer.",
+      "tab_video_range": "Netflix offers {min} to {max}"
     },
     "fr": {
       "status_checking": "Vérification de Safari…",
@@ -72,7 +85,20 @@
       "tab_none": "Ouvrez Netflix pour voir quel son il envoie.",
       "tab_waiting": "Surroundflix est actif. Lancez un titre pour voir quel son Netflix envoie.",
       "tab_best": "Meilleur son envoyé par Netflix : {format}",
-      "tab_stereo": "Netflix n'a envoyé que de la stéréo pour ce titre."
+      "tab_stereo": "Netflix n'a envoyé que de la stéréo pour ce titre.",
+      "audio_video": "Audio et vidéo",
+      "video": "Vidéo",
+      "tab_video": "Vidéo : {quality}",
+      "app_video_where": "Le même bouton règle la qualité vidéo : automatique, résolution minimale, toujours la meilleure ou économie de données.",
+      "video_quality": "Qualité",
+      "video_auto": "Automatique (Netflix décide)",
+      "video_min720": "Au moins 720p",
+      "video_min1080": "Au moins 1080p",
+      "video_min2160": "Au moins 4K (2160p)",
+      "video_best": "Toujours la meilleure",
+      "video_saver": "Économie de données (720p max)",
+      "video_hint": "Au-delà d'Automatique, il faut une connexion rapide et stable, sinon la lecture s'interrompt pour charger.",
+      "tab_video_range": "Netflix propose de {min} à {max}"
     },
     "pt-PT": {
       "status_checking": "A verificar o Safari…",
@@ -103,7 +129,20 @@
       "tab_none": "Abra a Netflix para ver que áudio envia.",
       "tab_waiting": "O Surroundflix está ativo. Inicie um título para ver que áudio a Netflix envia.",
       "tab_best": "Melhor áudio enviado pela Netflix: {format}",
-      "tab_stereo": "A Netflix só enviou estéreo para este título."
+      "tab_stereo": "A Netflix só enviou estéreo para este título.",
+      "audio_video": "Áudio e vídeo",
+      "video": "Vídeo",
+      "tab_video": "Vídeo: {quality}",
+      "app_video_where": "O mesmo botão define a qualidade de vídeo: automática, resolução mínima, sempre a melhor ou poupança de dados.",
+      "video_quality": "Qualidade",
+      "video_auto": "Automática (a Netflix decide)",
+      "video_min720": "Pelo menos 720p",
+      "video_min1080": "Pelo menos 1080p",
+      "video_min2160": "Pelo menos 4K (2160p)",
+      "video_best": "Sempre a melhor",
+      "video_saver": "Poupança de dados (máx. 720p)",
+      "video_hint": "Acima de Automática, é precisa uma ligação rápida e estável; caso contrário, a reprodução interrompe-se para carregar.",
+      "tab_video_range": "A Netflix oferece de {min} a {max}"
     },
     "pt-BR": {
       "status_checking": "Verificando o Safari…",
@@ -134,7 +173,20 @@
       "tab_none": "Abra a Netflix para ver qual áudio ela envia.",
       "tab_waiting": "O Surroundflix está ativo. Abra um título para ver qual áudio a Netflix envia.",
       "tab_best": "Melhor áudio enviado pela Netflix: {format}",
-      "tab_stereo": "A Netflix só enviou estéreo para este título."
+      "tab_stereo": "A Netflix só enviou estéreo para este título.",
+      "audio_video": "Áudio e vídeo",
+      "video": "Vídeo",
+      "tab_video": "Vídeo: {quality}",
+      "app_video_where": "O mesmo botão define a qualidade do vídeo: automática, resolução mínima, sempre a melhor ou economia de dados.",
+      "video_quality": "Qualidade",
+      "video_auto": "Automática (a Netflix decide)",
+      "video_min720": "Pelo menos 720p",
+      "video_min1080": "Pelo menos 1080p",
+      "video_min2160": "Pelo menos 4K (2160p)",
+      "video_best": "Sempre a melhor",
+      "video_saver": "Economia de dados (máx. 720p)",
+      "video_hint": "Acima de Automática, é preciso uma conexão rápida e estável; senão, a reprodução pausa para carregar.",
+      "tab_video_range": "A Netflix oferece de {min} a {max}"
     },
     "pt-AO": {
       "status_checking": "A verificar o Safari…",
@@ -165,7 +217,20 @@
       "tab_none": "Abra a Netflix para ver que áudio envia.",
       "tab_waiting": "O Surroundflix está activo. Ponha um título a tocar para ver que áudio a Netflix envia.",
       "tab_best": "Melhor áudio enviado pela Netflix: {format}",
-      "tab_stereo": "A Netflix só enviou estéreo para este título."
+      "tab_stereo": "A Netflix só enviou estéreo para este título.",
+      "audio_video": "Áudio e vídeo",
+      "video": "Vídeo",
+      "tab_video": "Vídeo: {quality}",
+      "app_video_where": "O mesmo botão define a qualidade de vídeo: automática, resolução mínima, sempre a melhor ou poupança de dados.",
+      "video_quality": "Qualidade",
+      "video_auto": "Automática (a Netflix decide)",
+      "video_min720": "Pelo menos 720p",
+      "video_min1080": "Pelo menos 1080p",
+      "video_min2160": "Pelo menos 4K (2160p)",
+      "video_best": "Sempre a melhor",
+      "video_saver": "Poupança de dados (máx. 720p)",
+      "video_hint": "Acima de Automática, é precisa uma ligação rápida e estável; senão, a reprodução pára para carregar.",
+      "tab_video_range": "A Netflix oferece de {min} a {max}"
     }
   }
 }

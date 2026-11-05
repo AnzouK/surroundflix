@@ -104,6 +104,19 @@ def build_app(work_dir: Path, preset: str, bundle_id: str) -> Path:
     return apps[0]
 
 
+LSREGISTER = (
+    "/System/Library/Frameworks/CoreServices.framework/Frameworks/"
+    "LaunchServices.framework/Support/lsregister"
+)
+
+
+def forget_build_copy(app: Path) -> None:
+    """xcodebuild registers the app it builds with macOS, so Safari would list
+    that copy's extension next to the installed one. Unregister it."""
+    if Path(LSREGISTER).exists():
+        subprocess.run([LSREGISTER, "-u", str(app)], check=False)  # nosec B603
+
+
 def make_dmg(app: Path, userscript: Path, out_file: Path, homepage: str) -> Path:
     _require_macos()
     staging = out_file.parent / "dmg-staging"
@@ -135,4 +148,5 @@ def make_dmg(app: Path, userscript: Path, out_file: Path, homepage: str) -> Path
         check=True,
     )
     shutil.rmtree(staging)
+    forget_build_copy(app)
     return out_file
