@@ -113,8 +113,10 @@ downmix. It's mostly useful with real 5.1 speakers.
 
 ## Check that it works
 
-1. Play a title that has 5.1 or Atmos audio. Netflix's web pages don't show
-   those badges, even with Surroundflix; the player's audio menu does.
+1. Open a title that has 5.1 or Atmos audio. Its page should show a
+   `Dolby Atmos` or `5.1` badge (and `Ultra HD 4K` in Safari): Netflix
+   sends those features but its web pages hide them, so Surroundflix adds
+   them back. Then play it.
 2. The player's audio menu should list `English (5.1)` or `English (Atmos)`.
 3. With AirPods connected, Control Center > Sound should say Multichannel / Spatial Audio, not Stereo.
 

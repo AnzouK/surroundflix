@@ -52,6 +52,10 @@ var DEFAULT_VIDEO_QUALITY = /*__SURROUNDFLIX_DEFAULT_VIDEO_QUALITY__*/ "auto";
     node.appendChild(document.createTextNode(parts[1] || ""));
   }
 
+  function isNetflixUrl(url) {
+    return typeof url === "string" && /^https:\/\/(www\.)?netflix\.com\//.test(url);
+  }
+
   function showVideo(video) {
     var quality = formatVideo(video, lang);
     videoOut.hidden = !quality;
@@ -64,6 +68,10 @@ var DEFAULT_VIDEO_QUALITY = /*__SURROUNDFLIX_DEFAULT_VIDEO_QUALITY__*/ "auto";
   function showStatus(reply) {
     showVideo(reply && reply.active && reply.status ? reply.status.video : null);
     out.textContent = "";
+    if (reply && reply.noAnswer) {
+      out.textContent = t(lang, "tab_no_access");
+      return;
+    }
     if (!reply || !reply.active) {
       out.textContent = t(lang, "tab_none");
       return;
@@ -81,20 +89,28 @@ var DEFAULT_VIDEO_QUALITY = /*__SURROUNDFLIX_DEFAULT_VIDEO_QUALITY__*/ "auto";
     sentence(out, "tab_best", "format", best);
   }
 
-  // Preview in a normal browser: popup.html?demo=atmos|stereo|waiting|none
+  // Preview in a normal browser: popup.html?demo=atmos|stereo|waiting|noaccess|none
   var demo = new URLSearchParams(location.search).get("demo");
   if (demo) {
     showStatus({
       atmos: { active: true, status: { received: ["ddplus-atmos-dash", "ddplus-5.1-dash", "heaac-2-dash"],
         video: { mode: "auto", height: 1080, bitrate: 5800, minHeight: 270, maxHeight: 1080 } } },
       stereo: { active: true, status: { received: ["heaac-2-dash"] } },
-      waiting: { active: true, status: { received: null } }
+      waiting: { active: true, status: { received: null } },
+      noaccess: { noAnswer: true }
     }[demo] || null);
   } else {
     try {
       Promise.resolve(api.tabs.query({ active: true, currentWindow: true })).then(function (tabs) {
-        if (!tabs || !tabs[0]) return null;
-        return api.tabs.sendMessage(tabs[0].id, { type: "surroundflix-status" });
+        var tab = tabs && tabs[0];
+        if (!tab) return null;
+        return Promise.resolve(api.tabs.sendMessage(tab.id, { type: "surroundflix-status" }))
+          .then(null, function () {
+            // No content script answered. The URL is only visible on sites
+            // the extension may access, so an unknown URL can be Netflix
+            // without permission (or a second copy of the extension).
+            return isNetflixUrl(tab.url) || !tab.url ? { noAnswer: true } : null;
+          });
       }).then(showStatus, function () { showStatus(null); });
     } catch (err) {
       showStatus(null);
