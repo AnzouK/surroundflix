@@ -70,14 +70,7 @@ between **5.1 and Atmos** (default) and **5.1 only**, and shows under
 "On this tab" the best audio Netflix actually sent for the current title.
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="design/app-dark.png">
-    <img src="design/app-light.png" width="420" alt="Surroundflix app window: extension status, setup steps, audio note, language menu and update check">
-  </picture>
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="design/popup-dark.png">
-    <img src="design/popup-light.png" width="240" alt="Surroundflix toolbar popup: choice between 5.1 and Atmos or 5.1 only">
-  </picture>
+  <img src="design/showcase.svg" width="720" alt="Surroundflix app window (extension status, setup steps, audio note, language menu, update check) next to the toolbar popup (choice between 5.1 and Atmos or 5.1 only, and the best audio Netflix sent: Dolby Atmos)">
 </p>
 
 ### Option B: userscript
@@ -168,6 +161,9 @@ asks for that output.
 
 Open `dist/app/Main.html` in a browser to preview the app window; add
 `?state=on&lang=pt-AO&theme=dark` to try other states, languages and themes.
+After changing the app window, the popup or their English text, run
+`python scripts/make_showcase.py` to redraw `design/showcase.svg` (a test
+fails until you do).
 
 Pushing a tag like `v0.1.0` builds the .dmg on GitHub's macOS runners and
 attaches it to a release with the userscript and the Chrome extension

@@ -3,6 +3,8 @@ and one version number everywhere. External links are checked weekly by
 .github/workflows/links.yml."""
 
 import re
+import sys
+import xml.dom.minidom
 from pathlib import Path
 
 import pytest
@@ -43,3 +45,18 @@ def test_one_version_everywhere():
     version = re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
     assert version == surroundflix.__version__
     assert f"## [{version}]" in (ROOT / "CHANGELOG.md").read_text()
+
+
+def test_showcase_svg_is_safe_and_up_to_date():
+    """design/showcase.svg is drawn from the templates: it must match them,
+    and contain nothing GitHub would block or that could run."""
+    svg_path = ROOT / "design" / "showcase.svg"
+    svg = svg_path.read_text()
+    xml.dom.minidom.parseString(svg)  # noqa: S318 (our own generated file)
+    for forbidden in ("<script", "<img", "data:", "javascript:", "onload=", "onclick="):
+        assert forbidden not in svg.lower(), forbidden
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import make_showcase
+
+    height = int(re.search(r'height="(\d+)"', svg).group(1))
+    assert svg == make_showcase.compose(height), "run: python scripts/make_showcase.py"
