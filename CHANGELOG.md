@@ -10,7 +10,7 @@ New entries go under [Unreleased].
 
 ## [Unreleased]
 
-## [1.0.0]
+## [1.0.0] - 2026-11-06
 
 Initial release. Surroundflix asks Netflix for its Dolby 5.1 and Atmos
 tracks in Safari, so macOS plays them with Spatial Audio on AirPods, and
