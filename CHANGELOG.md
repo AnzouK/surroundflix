@@ -11,6 +11,8 @@ under [Unreleased].
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-06
+
 ### Fixed
 
 - A change made in the popup now applies to the next title without reloading

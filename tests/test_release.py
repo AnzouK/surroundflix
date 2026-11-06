@@ -112,3 +112,11 @@ def test_dry_runs_change_nothing(capsys):
     assert release.main(["tag", "--dry-run"]) == 0
     assert "Dry run" in capsys.readouterr().out
     assert (ROOT / "CHANGELOG.md").read_text() == before
+
+
+def test_showcase_is_redrawn_with_the_new_version(tmp_path, monkeypatch):
+    svg = tmp_path / "showcase.svg"
+    svg.write_text((ROOT / "design" / "showcase.svg").read_text())
+    monkeypatch.setattr(release, "SHOWCASE", svg)
+    release.redraw_showcase("9.8.7")
+    assert 'id="version">9.8.7<' in svg.read_text()
