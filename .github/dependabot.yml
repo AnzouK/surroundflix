@@ -11,6 +11,9 @@ updates:
     commit-message:
       prefix: chore(ci)
     groups:
+      # init and analyze must always move together, major updates included.
+      codeql:
+        patterns: ["github/codeql-action*"]
       actions-minor-patch:
         applies-to: version-updates
         update-types: [minor, patch]
