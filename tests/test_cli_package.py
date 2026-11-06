@@ -200,3 +200,14 @@ def test_check_network_error_is_inconclusive(monkeypatch, capsys):
     url = "https://assets.nflxext.com/x/cadmium-playercore-6.0.js"
     # 2, not 1: nothing was checked, so no "profile missing" issue.
     assert main(["check", "--url", url]) == 2
+
+
+def test_check_cut_connection_is_inconclusive(monkeypatch):
+    import http.client
+
+    def cut(req, timeout):
+        raise http.client.IncompleteRead(b"")
+
+    monkeypatch.setattr(playercore, "_open", cut)
+    # The daily job once opened a "profile missing" issue for this.
+    assert main(["check"]) == 2

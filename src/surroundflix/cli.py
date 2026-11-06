@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import http.client
 import json
 import sys
 from pathlib import Path
@@ -78,8 +79,10 @@ def _cmd_check(args: argparse.Namespace) -> int:
                 )
                 return 2
         report = playercore.load(url=url, file=Path(args.file) if args.file else None)
-    except (ValueError, OSError) as err:  # OSError covers network errors and HTTP 403
-        print(err, file=sys.stderr)
+    # Network failures (OSError covers HTTP 403), a connection cut mid-answer
+    # (HTTPException) or a refused URL (ValueError): nothing was checked.
+    except (ValueError, OSError, http.client.HTTPException) as err:
+        print(f"playercore not checked: {err!r}", file=sys.stderr)
         return 2
     out = report.to_dict()
 
