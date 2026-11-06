@@ -3,13 +3,23 @@
 All notable changes to Surroundflix are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-`python3 scripts/release.py prepare` dates a section on the day you release
-it, and `python3 scripts/release.py tag` tags main once that is merged; the
-release workflow publishes the section as the release notes. New entries go
-under [Unreleased].
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Fixed
+
+- Codec and quality changes in the popup apply to the next title in every
+  case, without reloading the page.
+- "On this tab" in the popup picks the highest resolution before comparing
+  bitrates.
+- Badges show on a title's own page (`/title/...`), and the "More Like This"
+  cards in the details window no longer get the badges of the open title.
+- A card that React reuses for a title without badge data no longer keeps
+  the previous title's badges.
+- `surroundflix xcode` passes `--video-quality` and `--video-codec` to the
+  userscript it builds.
+- The app's update check ignores release tags that aren't plain versions.
 
 ## [1.0.1] - 2026-11-06
 

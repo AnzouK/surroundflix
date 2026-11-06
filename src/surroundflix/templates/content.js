@@ -45,7 +45,7 @@
       if (!message || message.type !== "surroundflix-status") return false;
       var raw = root.getAttribute("data-surroundflix-status");
       var status = null;
-      // Any page script can write this attribute; a real status is under 2 KB.
+      // Page scripts can write this attribute too. Real statuses stay under 2 KB.
       if (raw && raw.length <= 16384) {
         try { status = JSON.parse(raw); } catch (err) {}
       }

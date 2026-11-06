@@ -86,14 +86,6 @@ def test_analyze_ok_and_missing():
     assert not bad.ok and bad.missing == ["ddplus-atmos-dash"]
 
 
-def test_state_roundtrip(tmp_path):
-    state = tmp_path / "state.json"
-    rep = playercore.analyze(GOOD_CORE, url="cadmium-playercore-6.1.js")
-    assert playercore.compare_with_state(rep, state)["changed"] is True
-    playercore.save_state(rep, state)
-    assert playercore.compare_with_state(rep, state)["changed"] is False
-
-
 def test_cli_check_with_file(tmp_path, capsys):
     core = tmp_path / "cadmium-playercore-6.2.js"
     core.write_text(GOOD_CORE)

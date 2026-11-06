@@ -77,8 +77,8 @@ the audio choice is greyed out.
 | Always the best | The highest resolution, then the highest bitrate at it; for audio, the highest bitrate of each format |
 | Data saver (720p max) | Never above 720p, for hotspots and capped plans |
 
-These modes remove streams from the list Netflix's player picks from; the
-player itself is untouched. If a title doesn't reach a minimum, its best
+These modes filter the stream list in Netflix's answer before the player
+reads it. If a title doesn't reach a minimum, its best
 streams are kept, so playback never breaks. Anything above Automatic needs
 a fast, stable connection, or playback pauses to buffer instead of lowering
 the quality. Netflix caps Chrome at 1080p (software DRM); Safari can reach
@@ -229,7 +229,7 @@ just before the request goes out.
 The video quality and codec choices work the same way: video formats are
 removed from that list, or streams from Netflix's answer, before the
 player sees them. The badges come from the `playbackBadges` field Netflix
-already sends to its pages. DRM and accounts are untouched.
+already sends to its pages. DRM and accounts aren't involved.
 
 Earlier attempts (see [Credits](#credits)) shipped a hand-edited copy of
 Netflix's player, which broke with each new version. Surroundflix doesn't
@@ -284,9 +284,6 @@ asks for that output.
 
 Open `dist/app/Main.html` in a browser to preview the app window; add
 `?state=on&lang=pt-AO&theme=dark` to try other states, languages and themes.
-After changing the app window, the popup or their English text, run
-`python scripts/make_showcase.py` to redraw `design/showcase.svg` (a test
-fails until you do).
 
 Branches, commit messages, translations and releases are described in
 [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -35,8 +35,6 @@ const hygieneRules = {
   eqeqeq: ["error", "smart"],
 };
 
-// Code that runs next to Netflix's page and reads data from it: no way to
-// turn a string into code or HTML.
 const securityRules = {
   "no-eval": "error",
   "no-implied-eval": "error",

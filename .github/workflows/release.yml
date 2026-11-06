@@ -51,21 +51,7 @@ jobs:
           cat release/SHA256SUMS.txt
 
       - name: Release notes from the CHANGELOG
-        run: |
-          grep -Eq "^## \[$VERSION\] - [0-9]{4}-[0-9]{2}-[0-9]{2}" CHANGELOG.md || {
-            echo "CHANGELOG section $VERSION has no date: use python3 scripts/release.py"; exit 1; }
-          awk -v v="$VERSION" '
-            $0 ~ "^## \\[" v "\\]" { on = 1; next }
-            on && /^## \[/ { exit }
-            on { print }
-          ' CHANGELOG.md > notes.md
-          test -s notes.md || { echo "no CHANGELOG section for $VERSION"; exit 1; }
-          {
-            echo
-            cat .github/release-install.md
-            echo
-            echo "Check a download with \`shasum -a 256 -c SHA256SUMS.txt\`."
-          } >> notes.md
+        run: python3 scripts/release.py notes "$VERSION" > notes.md
 
       - name: Build provenance
         if: ${{ !github.event.repository.private }}

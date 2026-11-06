@@ -1,6 +1,6 @@
 # Daily check that Netflix's player still knows the profile names
-# Surroundflix asks for. Opens one issue when a name disappears; a fetch
-# that fails (Netflix often answers 403 to CI runners) only fails the job.
+# Surroundflix asks for. A missing name opens one issue. A failed download
+# (Netflix often blocks CI runners) only fails the job.
 #
 # If the playercore URL can't be found, set the repository variable
 # PLAYERCORE_URL to one copied from the browser's Network tab.
@@ -43,8 +43,7 @@ jobs:
           if [ -n "$PLAYERCORE_URL" ]; then args+=(--url "$PLAYERCORE_URL"); fi
           surroundflix check "${args[@]}" > report.json
           status=$?
-          # Only a report listing what's missing counts as a failure; a crash
-          # with no report means nothing was checked.
+          # Open an issue only when the report lists missing names.
           if [ "$status" = 1 ] && ! grep -q '"missing"' report.json; then status=2; fi
           echo "status=$status" >> "$GITHUB_OUTPUT"
           cat report.json

@@ -40,7 +40,7 @@ def test_internal_links_resolve(doc):
     assert not broken, broken
 
 
-def test_the_version_has_a_changelog_section():
+def test_version_in_changelog():
     assert f"## [{surroundflix.__version__}]" in (ROOT / "CHANGELOG.md").read_text()
 
 
