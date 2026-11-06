@@ -174,6 +174,8 @@ def test_update_link_must_point_to_this_repository(url, ok):
     [
         ("v1.0.0", "0.1.0", True),
         ("1.2.10", "1.2.9", True),
+        ("v1.10.0", "1.9.0", True),
+        ("v1.9.0", "1.10.0", False),
         ("v0.1.0", "0.1.0", False),
         ("v1.0.0-beta", "1.0.0", False),
         ("garbage", "0.1.0", False),
@@ -256,6 +258,8 @@ def test_workflow_is_hardened(path):
         "pull_request_target runs fork code with secrets"
     )
     for job in data["jobs"].values():
+        if "uses" in job:  # calls a reusable workflow, which sets its own limits
+            continue
         assert "timeout-minutes" in job
         for step in job.get("steps", []):
             run = step.get("run", "")
@@ -293,7 +297,7 @@ def tracked_text_files():
 def test_no_personal_paths_or_secrets_in_the_repository():
     pattern = re.compile(
         r"/Users/[a-z]|-----BEGIN [A-Z ]*PRIVATE KEY|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}"
-        r"|[A-Za-z0-9._%+-]+@(?!users\.noreply\.github\.com|anthropic\.com|fsf\.org)[A-Za-z0-9-]+\.[a-z]{2,}"
+        r"|[A-Za-z0-9._%+-]+@(?!users\.noreply\.github\.com|fsf\.org)[A-Za-z0-9-]+\.[a-z]{2,}"
     )
     me = Path(__file__).name
     hits = []

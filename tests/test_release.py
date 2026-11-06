@@ -106,3 +106,20 @@ def test_install_guide_names_every_release_file():
     guide = (ROOT / ".github" / "release-install.md").read_text()
     for name in ("Surroundflix.dmg", "surroundflix.user.js", "surroundflix-chrome.zip"):
         assert name in workflow and name in guide, name
+
+
+def test_tag_needs_a_dated_section():
+    text = HEAD + "## [Unreleased]\n\n## [1.1.0] - 2026-11-06\n\nX.\n\n## [1.0.0] - 2026-11-01\n"
+    assert release.dated_section(text, "1.1.0").startswith("## [1.1.0] - 2026-11-06")
+    with pytest.raises(ValueError, match="isn't dated yet"):
+        release.dated_section(HEAD + "## [Unreleased]\n\n## [1.1.0]\n\nX.\n", "1.1.0")
+    with pytest.raises(ValueError, match="no \\[1.2.0\\] section"):
+        release.dated_section(text, "1.2.0")
+
+
+def test_dry_runs_change_nothing(capsys):
+    before = (ROOT / "CHANGELOG.md").read_text()
+    # The code's version is released (dated) on main, so tag accepts it.
+    assert release.main(["tag", "--dry-run"]) == 0
+    assert "Dry run" in capsys.readouterr().out
+    assert (ROOT / "CHANGELOG.md").read_text() == before

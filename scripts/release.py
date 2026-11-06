@@ -1,16 +1,20 @@
-"""Prepares a release from your Mac: dates the CHANGELOG section with
-today's date (your computer's), sets the version, commits on a release
-branch, tags it and pushes both. The tag starts .github/workflows/release.yml,
-which builds the .dmg, the userscript and the Chrome zip and publishes the
-release with that CHANGELOG section as notes.
+"""Release helper, in two steps so the tag lands on main after CI.
 
-    python3 scripts/release.py            # the version already in the code
-    python3 scripts/release.py 0.2.0      # a new version: [Unreleased] becomes [0.2.0]
-    python3 scripts/release.py --dry-run  # show what would change, touch nothing
+    python3 scripts/release.py prepare 1.1.0   # [Unreleased] becomes [1.1.0]
+    python3 scripts/release.py prepare         # or the version already in the code
+    python3 scripts/release.py tag             # after the release PR is merged
 
-Run it on an up-to-date main with nothing uncommitted. Afterwards, merge the
-release branch's pull request (Rebase and merge) so main gets the dated
-CHANGELOG too.
+prepare (on an up-to-date main): dates the CHANGELOG section with today's
+date (your computer's), sets the version, commits on a release/v... branch
+and pushes it. Open its pull request and merge it once CI is green.
+
+tag (on the up-to-date main that contains that merge): checks that the
+CHANGELOG section of the code's version is dated, then tags main and
+pushes the tag. The tag starts .github/workflows/release.yml, which runs
+the CI again, builds the .dmg, the userscript and the Chrome zip, and
+publishes the release with that CHANGELOG section as notes.
+
+--dry-run shows what would happen and changes nothing.
 """
 
 from __future__ import annotations
@@ -95,46 +99,83 @@ def check_repo(tag: str) -> None:
         raise RuntimeError(f"tag {tag} already exists")
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("version", nargs="?", help="default: the version in the code")
-    parser.add_argument("--dry-run", action="store_true", help="show the changes only")
-    args = parser.parse_args(argv)
+def dated_section(text: str, version: str) -> str:
+    """The released section of `version`; refuses an undated or missing one."""
+    section = _section(text, version)
+    if section is None:
+        raise ValueError(f"CHANGELOG.md has no [{version}] section")
+    line = section.group(0).split("\n", 1)[0]
+    if not re.fullmatch(rf"## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}", line.strip()):
+        raise ValueError(
+            f"[{version}] isn't dated yet: run 'prepare' and merge its pull request first"
+        )
+    return section.group(0)
 
-    init_text = INIT.read_text()
-    current = re.search(r'^__version__ = "([^"]+)"', init_text, re.M).group(1)
-    version = args.version or current
+
+def code_version() -> str:
+    return re.search(r'^__version__ = "([^"]+)"', INIT.read_text(), re.M).group(1)
+
+
+def prepare(version: str | None, dry_run: bool) -> int:
+    version = version or code_version()
     tag, branch = f"v{version}", f"release/v{version}"
     today = datetime.date.today()  # your computer's date
-    try:
-        changelog = release_changelog(CHANGELOG.read_text(), version, today)
-        pyproject, init_text = set_version(PYPROJECT.read_text(), init_text, version)
-        if not args.dry_run:
-            check_repo(tag)
-    except (ValueError, RuntimeError, subprocess.CalledProcessError) as err:
-        print(f"surroundflix release: {err}", file=sys.stderr)
-        return 1
-
-    section = _section(changelog, version).group(0)
-    print(f"Release {tag}, dated {today.isoformat()}:\n\n{section.strip()}\n")
-    if args.dry_run:
+    changelog = release_changelog(CHANGELOG.read_text(), version, today)
+    pyproject, init = set_version(PYPROJECT.read_text(), INIT.read_text(), version)
+    if not dry_run:
+        check_repo(tag)
+    print(
+        f"Release {tag}, dated {today.isoformat()}:\n\n{_section(changelog, version).group(0).strip()}\n"
+    )
+    if dry_run:
         print("Dry run: nothing changed.")
         return 0
-
     git("checkout", "-b", branch)
     CHANGELOG.write_text(changelog, "utf-8")
     PYPROJECT.write_text(pyproject, "utf-8")
-    INIT.write_text(init_text, "utf-8")
+    INIT.write_text(init, "utf-8")
     git("add", str(CHANGELOG), str(PYPROJECT), str(INIT))
     git("commit", "--quiet", "-m", f"chore(release): {tag}")
-    git("tag", "-a", tag, "-m", f"Surroundflix {version}")
     git("push", "--quiet", "-u", "origin", branch, capture=False)
-    git("push", "--quiet", "origin", tag, capture=False)
-    print(f"Pushed {branch} and {tag}. The release builds here:")
-    print(f"  https://github.com/{REPO}/actions/workflows/release.yml")
-    print("Then merge the release branch (Rebase and merge):")
+    print(f"Pushed {branch}. Open its pull request, merge it once CI is green:")
     print(f"  https://github.com/{REPO}/compare/main...{branch}?expand=1")
+    print("then, on main: git checkout main && git pull && python3 scripts/release.py tag")
     return 0
+
+
+def tag_release(dry_run: bool) -> int:
+    version = code_version()
+    tag = f"v{version}"
+    dated_section(CHANGELOG.read_text(), version)
+    if not dry_run:
+        check_repo(tag)
+    print(f"Tag {tag} on the current main commit.")
+    if dry_run:
+        print("Dry run: nothing changed.")
+        return 0
+    git("tag", "-a", tag, "-m", f"Surroundflix {version}")
+    git("push", "--quiet", "origin", tag, capture=False)
+    print("Pushed. The release builds here:")
+    print(f"  https://github.com/{REPO}/actions/workflows/release.yml")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    sub = parser.add_subparsers(dest="step", required=True)
+    p = sub.add_parser("prepare", help="date the CHANGELOG and push a release branch")
+    p.add_argument("version", nargs="?", help="default: the version in the code")
+    p.add_argument("--dry-run", action="store_true", help="show the changes only")
+    t = sub.add_parser("tag", help="tag main once the release branch is merged")
+    t.add_argument("--dry-run", action="store_true", help="show the changes only")
+    args = parser.parse_args(argv)
+    try:
+        if args.step == "prepare":
+            return prepare(args.version, args.dry_run)
+        return tag_release(args.dry_run)
+    except (ValueError, RuntimeError, subprocess.CalledProcessError) as err:
+        print(f"surroundflix release: {err}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
