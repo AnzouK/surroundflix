@@ -181,13 +181,23 @@ downmix. It's mostly useful with real 5.1 speakers.
    them back. Then play it.
 2. The player's audio menu should list `English (5.1)` or `English (Atmos)`.
 3. With AirPods connected, Control Center > Sound should say Multichannel / Spatial Audio, not Stereo.
+4. For details, press Ctrl+Option+Shift+D during playback to show Netflix's
+   own stats. Excerpt from The Witcher: Sirens of the Deep in Safari, with
+   Surroundflix:
+
+   ```text
+   Audio Track: en, Channels: 5.1, Codec: audio/mp4;codecs=ec-3 (ddplusatmos)
+   Video Track: Codec: video/mp4;codecs=dvhe.05.01 (hevc, dv, prk)
+   ```
+
+   Without it, the audio line reads `Channels: 2.0` with an AAC codec.
 
 If Atmos titles ever fail to play, choose **5.1 only** in the toolbar
 button (userscript: build it with `--preset surround`).
 
 ## Tested on
 
-- macOS 26 with Safari 27.2 (app and userscript) and Chrome 156, Netflix
+- macOS 26 with Safari 27.3 (app and userscript) and Chrome 156, Netflix
   Premium plan.
 - The Witcher: Sirens of the Deep (Atmos, Dolby Vision): Dolby Atmos in
   Safari, AAC 5.1 in Chrome.
