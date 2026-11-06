@@ -25,11 +25,12 @@ def test_build_command(tmp_path, capsys):
 
 
 def test_xcode_dry_run_command(tmp_path, capsys):
-    assert (
-        main(["xcode", "--out", str(tmp_path / "d"), "--project", str(tmp_path / "x"), "--dry-run"])
-        == 0
-    )
+    out, project = str(tmp_path / "d"), str(tmp_path / "x")
+    args = ["xcode", "--out", out, "--project", project, "--dry-run", "--video-codec", "h264"]
+    assert main(args) == 0
     assert "safari-web-extension-converter" in capsys.readouterr().out
+    script = (tmp_path / "d" / "userscript" / "surroundflix.user.js").read_text()
+    assert '"videoCodec": "h264"' in script
 
 
 def test_check_refuses_bad_url(capsys):
@@ -42,17 +43,14 @@ def test_check_without_url_when_discovery_fails(monkeypatch, capsys):
     assert main(["check"]) == 2
 
 
-def test_check_reports_missing_and_state(tmp_path, capsys):
+def test_check_reports_missing(tmp_path, capsys):
     core = tmp_path / "cadmium-playercore-6.3.js"
     core.write_text('"heaac-2-dash" profiles')
-    state = tmp_path / "state.json"
-    assert main(["check", "--file", str(core), "--state", str(state), "--update-state"]) == 1
-    out = capsys.readouterr().out
-    assert "MISSING" in out and "changed since last check: yes" in out
-    assert json.loads(state.read_text())["ok"] is False
+    assert main(["check", "--file", str(core)]) == 1
+    assert "MISSING" in capsys.readouterr().out
 
 
-def test_check_downloads_with_the_validated_url(monkeypatch, capsys):
+def test_check_downloads_validated_url(monkeypatch, capsys):
     seen = {}
 
     class Resp:
@@ -179,7 +177,7 @@ def test_requires_xcode(monkeypatch):
         package._require_macos()
 
 
-def test_command_line_tools_only_gives_the_fix(tmp_path, fake_macos, monkeypatch, capsys):
+def test_clt_error_message(tmp_path, fake_macos, monkeypatch, capsys):
     def no_converter(cmd, check=True, capture_output=False, text=False):
         return subprocess.CompletedProcess(cmd, 72, stdout="", stderr="unable to find utility")
 
@@ -209,5 +207,4 @@ def test_check_cut_connection_is_inconclusive(monkeypatch):
         raise http.client.IncompleteRead(b"")
 
     monkeypatch.setattr(playercore, "_open", cut)
-    # The daily job once opened a "profile missing" issue for this.
     assert main(["check"]) == 2

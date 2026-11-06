@@ -68,11 +68,11 @@ function bestAudio(profiles) {
   return null;
 }
 
-// Compares "1.2.10" with "v1.2.9". Pre-release suffixes ("-beta") are
-// ignored; anything unparsable is never "newer".
+// Compares "1.2.10" with "v1.2.9". Anything else, pre-releases included,
+// is never newer.
 function isNewerVersion(candidate, current) {
   function parts(v) {
-    var m = /^v?(\d+)\.(\d+)(?:\.(\d+))?/.exec(String(v || ""));
+    var m = /^v?(\d{1,6})\.(\d{1,6})(?:\.(\d{1,6}))?$/.exec(String(v || ""));
     return m ? [+m[1], +m[2], +(m[3] || 0)] : null;
   }
   var a = parts(candidate), b = parts(current);
@@ -111,10 +111,8 @@ function codecLabel(name) {
   return Object.prototype.hasOwnProperty.call(CODEC_LABELS, name) ? CODEC_LABELS[name] : "";
 }
 
-// A positive whole-ish number no larger than `max`, as Netflix would send.
-// The status comes from the page, so anything else is ignored.
 function plausible(n, max) {
-  return typeof n === "number" && isFinite(n) && n > 0 && n <= max;
+  return typeof n === "number" && isFinite(n) && n >= 1 && n <= max;
 }
 
 function formatVideo(video, lang) {

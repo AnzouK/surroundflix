@@ -32,6 +32,7 @@ function El(tag, attrs, text, kids) {
 El.prototype.getAttribute = function (k) { return k in this.attrs ? this.attrs[k] : null; };
 El.prototype.setAttribute = function (k, v) { this.attrs[k] = String(v); };
 El.prototype.hasAttribute = function (k) { return k in this.attrs; };
+El.prototype.removeAttribute = function (k) { delete this.attrs[k]; };
 El.prototype.matches = function (s) { return s.split(",").some(function (p) { return matches(this, p); }, this); };
 El.prototype.appendChild = function (c) { return this.insertBefore(c, null); };
 El.prototype.insertBefore = function (c, ref) {
@@ -59,7 +60,7 @@ html.getAttribute = function (k) { return k in ATTRS ? ATTRS[k] : null; };
 var body = h("body");
 html.appendChild(body);
 globalThis.window = globalThis;
-globalThis.location = { search: %(search)s };
+globalThis.location = { search: %(search)s, pathname: %(path)s };
 globalThis.document = {
   documentElement: html,
   createElement: function (t) { return h(t); },
@@ -122,13 +123,14 @@ RESPONSE = {
 }
 
 
-def run(check_dolby=False, dolby=True, preset=None, search="", extra=""):
+def run(check_dolby=False, dolby=True, preset=None, search="", path="/browse", extra=""):
     attrs = {"data-surroundflix-preset": preset} if preset else {}
     code = (
         FAKE_DOM
         % {
             "attrs": json.dumps(attrs),
             "search": json.dumps(search),
+            "path": json.dumps(path),
             "dolby": "true" if dolby else "false",
         }
         + render_page_script("atmos", check_dolby=check_dolby)
@@ -175,7 +177,7 @@ def test_chrome_without_dolby_shows_5_1_only():
     assert out["blacklist"] == ["year", "HD", "5.1"]
 
 
-def test_5_1_only_choice_shows_5_1_instead_of_atmos():
+def test_surround_preset_shows_5_1():
     out = run(preset="surround")
     assert "Dolby Atmos" not in out["witcher"] and "5.1" in out["witcher"]
 
@@ -188,7 +190,7 @@ def test_redrawing_does_not_duplicate():
     assert out["blacklist"].count("5.1") == 1
 
 
-def test_a_reused_line_follows_the_new_title():
+def test_reused_line_follows_new_title():
     # React reuses the card for another title: the badges follow it.
     extra = """
     setTimeout(function () {
@@ -201,7 +203,20 @@ def test_a_reused_line_follows_the_new_title():
     assert run(extra=extra)["blacklist"] == ["year", "~HD", "Ultra HD 4K", "Dolby Atmos"]
 
 
-def test_open_modal_id_comes_from_the_url():
+def test_reused_line_unknown_title_cleared():
+    # The line now belongs to a title Netflix sent no badges for.
+    extra = """
+    setTimeout(function () {
+      var card = blacklist.parentElement.parentElement;
+      card.removeChild(card.children[0]);
+      card.insertBefore(tracking(424242), card.children[0]);
+      JSON.parse('{"data":{"x":{"videoId":5,"playbackBadges":[]}}}');
+    }, 150);
+    """
+    assert run(extra=extra)["blacklist"] == ["year", "HD"]
+
+
+def test_modal_id_from_jbv():
     extra = """
     var modal = line([h("span", {"class": "duration"}, "1 h")]);
     var outside = line([h("span", {"class": "duration"}, "2 h")]);
@@ -213,6 +228,25 @@ def test_open_modal_id_comes_from_the_url():
     assert out["extra"][0] == ["duration", "Ultra HD 4K", "5.1"]
     # A line outside the modal doesn't borrow the modal's title.
     assert out["extra"][1] == ["duration"]
+
+
+def test_title_page_url_fallback():
+    extra = """
+    var own = line([h("span", {"class": "duration"}, "1 h")]);
+    body.appendChild(h("div", {"class": "detail-modal"}, "", [own]));
+    setTimeout(function () { globalThis.__extra = labels(own); }, 200);
+    """
+    assert run(path="/title/70281312", extra=extra)["extra"] == ["duration", "Ultra HD 4K", "5.1"]
+
+
+def test_modal_similar_cards_ignored():
+    extra = """
+    var similar = line([h("span", {"class": "duration"}, "1 h")]);
+    body.appendChild(h("div", {"class": "detail-modal"}, "", [
+      h("div", {"class": "titleCard--container"}, "", [similar])]));
+    setTimeout(function () { globalThis.__extra = labels(similar); }, 200);
+    """
+    assert run(search="?jbv=70281312", extra=extra)["extra"] == ["duration"]
 
 
 def test_netflix_badges_are_not_repeated():
@@ -232,7 +266,7 @@ def test_badge_lists_are_sanitised():
     assert run(extra=extra)["titles"] == 3
 
 
-def test_badges_follow_a_change_of_audio_choice():
+def test_badges_update_on_preset_change():
     # The popup switches to "5.1 only" while the page is open: Atmos becomes 5.1.
     extra = """
     setTimeout(function () {

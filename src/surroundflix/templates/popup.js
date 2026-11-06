@@ -8,12 +8,18 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
 (function () {
   "use strict";
   var api = globalThis.browser || globalThis.chrome;
+  // Missing when popup.html is opened as a normal page (?demo= below).
+  var storage = api && api.storage && api.storage.local;
   var radios = document.querySelectorAll('input[name="preset"]');
+  var lang = pickLang(navigator.languages || [navigator.language]);
 
-  applyI18n(document, pickLang(navigator.languages || [navigator.language]));
+  applyI18n(document, lang);
 
   function select(value) {
-    for (var i = 0; i < radios.length; i++) radios[i].checked = radios[i].value === value;
+    var known = false;
+    for (var i = 0; i < radios.length; i++) known = known || radios[i].value === value;
+    if (!known) value = DEFAULT_PRESET;
+    for (var j = 0; j < radios.length; j++) radios[j].checked = radios[j].value === value;
   }
 
   var videoQuality = document.getElementById("video-quality");
@@ -45,39 +51,45 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     if ((only && only !== browserName) || !decodes(codecOptions[c].value)) codecOptions[c].remove();
   }
 
+  function save(items) {
+    try {
+      if (storage) storage.set(items);
+    } catch (err) {}
+  }
+
   select(DEFAULT_PRESET);
   videoQuality.value = DEFAULT_VIDEO_QUALITY;
   videoCodec.value = DEFAULT_VIDEO_CODEC;
-  Promise.resolve(api.storage.local.get(["preset", "videoQuality", "videoCodec"])).then(function (stored) {
-    if (stored && stored.preset) select(stored.preset);
-    if (stored && typeof stored.videoQuality === "string") videoQuality.value = stored.videoQuality;
-    if (!videoQuality.value) videoQuality.value = DEFAULT_VIDEO_QUALITY; // unknown stored value
-    if (stored && typeof stored.videoCodec === "string") videoCodec.value = stored.videoCodec;
-    if (!videoCodec.value) {
-      // The stored codec isn't offered any more (not decodable here): reset
-      // it, or page.js would keep asking for it while the menu shows Automatic.
-      videoCodec.value = DEFAULT_VIDEO_CODEC;
-      api.storage.local.set({ videoCodec: DEFAULT_VIDEO_CODEC });
-    }
-    describeAll();
-  }, function () {});
+  describeAll();
+  if (storage) try {
+    Promise.resolve(storage.get(["preset", "videoQuality", "videoCodec"])).then(function (stored) {
+      if (stored && stored.preset) select(stored.preset);
+      if (stored && typeof stored.videoQuality === "string") videoQuality.value = stored.videoQuality;
+      if (!videoQuality.value) videoQuality.value = DEFAULT_VIDEO_QUALITY; // unknown stored value
+      if (stored && typeof stored.videoCodec === "string") videoCodec.value = stored.videoCodec;
+      if (!videoCodec.value) {
+        // Codec no longer offered in this browser, so go back to Automatic.
+        videoCodec.value = DEFAULT_VIDEO_CODEC;
+        save({ videoCodec: DEFAULT_VIDEO_CODEC });
+      }
+      describeAll();
+    }, function () {});
+  } catch (err) {}
 
   for (var i = 0; i < radios.length; i++) {
     radios[i].addEventListener("change", function (event) {
-      api.storage.local.set({ preset: event.target.value });
+      save({ preset: event.target.value });
       describeAll();
     });
   }
   videoQuality.addEventListener("change", function () {
-    api.storage.local.set({ videoQuality: videoQuality.value });
+    save({ videoQuality: videoQuality.value });
     describeAll();
   });
   videoCodec.addEventListener("change", function () {
-    api.storage.local.set({ videoCodec: videoCodec.value });
+    save({ videoCodec: videoCodec.value });
     describeAll();
   });
-
-  var lang = pickLang(navigator.languages || [navigator.language]);
 
   // One line under each menu explains the option currently chosen.
   function describe(id, key, extra) {
@@ -120,7 +132,8 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     var quality = formatVideo(video, lang);
     videoOut.hidden = !quality;
     if (quality) sentence(videoOut, "tab_video", "quality", quality);
-    var hasRange = !!quality && plausible(video.minHeight, 10000) && plausible(video.maxHeight, 10000);
+    var hasRange = !!quality && plausible(video.minHeight, 10000) && plausible(video.maxHeight, 10000) &&
+      video.minHeight <= video.maxHeight;
     rangeOut.hidden = !hasRange;
     if (hasRange) rangeOut.textContent = t(lang, "tab_video_range", { min: Math.round(video.minHeight) + "p", max: Math.round(video.maxHeight) + "p" });
   }

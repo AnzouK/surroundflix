@@ -43,7 +43,13 @@ def _cmd_build(args: argparse.Namespace) -> int:
 
 
 def _cmd_xcode(args: argparse.Namespace) -> int:
-    result = builder.build(Path(args.out), preset=args.preset, debug=args.debug)
+    result = builder.build(
+        Path(args.out),
+        preset=args.preset,
+        debug=args.debug,
+        video_quality=args.video_quality,
+        video_codec=args.video_codec,
+    )
     cmd = builder.make_xcode_project(
         result.webextension, Path(args.project), args.bundle_id, dry_run=args.dry_run
     )
@@ -79,18 +85,11 @@ def _cmd_check(args: argparse.Namespace) -> int:
                 )
                 return 2
         report = playercore.load(url=url, file=Path(args.file) if args.file else None)
-    # Network failures (OSError covers HTTP 403), a connection cut mid-answer
-    # (HTTPException) or a refused URL (ValueError): nothing was checked.
+    # Nothing was checked (HTTP error, cut connection or refused URL).
     except (ValueError, OSError, http.client.HTTPException) as err:
         print(f"playercore not checked: {err!r}", file=sys.stderr)
         return 2
     out = report.to_dict()
-
-    if args.state:
-        state_file = Path(args.state)
-        out["comparison"] = playercore.compare_with_state(report, state_file)
-        if args.update_state:
-            playercore.save_state(report, state_file)
 
     if args.json:
         print(json.dumps(out, indent=2))
@@ -98,9 +97,6 @@ def _cmd_check(args: argparse.Namespace) -> int:
         print(f"Playercore: {report.version or 'unknown version'} ({report.size} bytes)")
         for needle, ok in report.found.items():
             print(f"  {'found  ' if ok else 'MISSING'}  {needle}")
-        if "comparison" in out:
-            c = out["comparison"]
-            print(f"  changed since last check: {'yes' if c['changed'] else 'no'}")
         print(
             "OK, Surroundflix should keep working."
             if report.ok
@@ -159,8 +155,6 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("check", help="check Netflix's current playercore for breaking changes")
     sp.add_argument("--url", help="playercore URL (copy it from Safari's Network tab)")
     sp.add_argument("--file", help="local copy of the playercore .js")
-    sp.add_argument("--state", help="JSON file holding the last known report")
-    sp.add_argument("--update-state", action="store_true")
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(func=_cmd_check)
     return p

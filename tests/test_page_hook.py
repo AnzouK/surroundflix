@@ -208,13 +208,13 @@ def test_video_modes(mode, kept):
     assert out["videoStatus"]["height"] == max(kept)
 
 
-def test_auto_is_the_default_and_touches_nothing():
+def test_auto_is_default():
     out = run(extra=VIDEO)
     assert out["kept"] == [270, 1080, 720, 540]
     assert out["audioKept"] == [384, 640, 448]
 
 
-def test_best_also_keeps_the_top_bitrate_of_each_audio_format():
+def test_best_locks_audio_bitrate():
     # 5.1 keeps 640 (not 384); Atmos is another format and stays.
     assert run(extra=VIDEO, video="best")["audioKept"] == [640, 448]
 
@@ -224,13 +224,13 @@ def test_unknown_video_values_mean_automatic(value):
     assert run(extra=VIDEO, video=value)["kept"] == [270, 1080, 720, 540]
 
 
-def test_userscript_build_sets_the_default_mode():
+def test_userscript_default_mode():
     assert run(extra=VIDEO, built_video="min1080")["kept"] == [1080]
     # An explicit popup choice wins over the build default.
     assert run(extra=VIDEO, built_video="min1080", video="auto")["kept"] == [270, 1080, 720, 540]
 
 
-def test_a_floor_above_every_stream_keeps_the_tallest():
+def test_floor_too_high_keeps_tallest():
     extra = """
     const m = {result: {video_tracks: [{streams: [
       {bitrate: 500, res_h: 480}, {bitrate: 900, res_h: 576}, {bitrate: 700, res_h: 576}]}]}};
@@ -239,7 +239,7 @@ def test_a_floor_above_every_stream_keeps_the_tallest():
     assert run(extra=extra, video="min1080")["kept"] == [900, 700]
 
 
-def test_streams_without_a_size_dont_disable_the_mode():
+def test_unsized_streams_ignored():
     extra = """
     const m = {result: {video_tracks: [{streams: [{bitrate: 500}, {bitrate: 900, res_h: 1080},
       {bitrate: 300, res_h: 480}]}]}};
@@ -248,7 +248,7 @@ def test_streams_without_a_size_dont_disable_the_mode():
     assert run(extra=extra, video="min720")["kept"] == [900]
 
 
-def test_no_sizes_at_all_leaves_the_list_alone():
+def test_no_sizes_no_trim():
     extra = """
     const m = {result: {video_tracks: [{streams: [{bitrate: 500}, {bitrate: 900}]}]}};
     out.kept = JSON.parse(JSON.stringify(m)).result.video_tracks[0].streams.length;
@@ -315,7 +315,7 @@ def test_unknown_codec_values_mean_automatic(value):
     assert run(extra=MIXED, codec=value)["kept"] == [1800, 700, 4300, 10400, 5000]
 
 
-def test_userscript_build_sets_the_default_codec():
+def test_userscript_default_codec():
     assert run(extra=MIXED, built_codec="h264")["kept"] == [4300]
     assert run(extra=MIXED, built_codec="h264", codec="auto")["kept"] == [
         1800,
@@ -342,7 +342,7 @@ REQUEST = """
 """
 
 
-def test_request_lists_only_the_chosen_codec():
+def test_request_keeps_chosen_codec():
     out = run(extra=REQUEST, codec="h264", check_dolby=True, dolby=False)
     assert out["request"] == [
         "heaac-2-dash",
@@ -354,14 +354,14 @@ def test_request_lists_only_the_chosen_codec():
     assert out["groups"] == ["playready-h264hpl40-dash"]
 
 
-def test_request_without_the_chosen_codec_is_left_alone():
+def test_request_without_codec_unchanged():
     # Safari without an AV1 decoder never lists AV1: nothing is removed.
     out = run(extra=REQUEST, codec="hevc")
     assert "av1-main-L40-dash-cbcs-prk" in out["request"]
     assert out["groups"] == ["hevc-main10-L41-dash-cenc-prk"]
 
 
-def test_automatic_codec_keeps_the_request():
+def test_auto_codec_keeps_request():
     out = run(extra=REQUEST)
     assert "vp9-profile0-L40-dash-cenc" in out["request"]
     assert "av1-main-L40-dash-cbcs-prk" in out["request"]
@@ -389,7 +389,7 @@ def test_h264_main_stream_is_named():
     assert run(extra=extra, codec="h264")["kept"] == [5200, 4300]
 
 
-def test_h264_main_is_added_when_the_browser_lists_only_high():
+def test_h264_main_added_from_high():
     extra = """
     const req = {params: {profiles: ["heaac-2-dash", "playready-h264hpl30-dash",
       "playready-h264hpl40-dash", "av1-main-L40-dash-cbcs-prk"]}};
@@ -408,7 +408,7 @@ def test_h264_main_is_added_when_the_browser_lists_only_high():
     assert "av1-main-L40-dash-cbcs-prk" not in out["request"]
 
 
-def test_netflix_request_object_is_left_intact():
+def test_request_object_not_mutated():
     # Cadmium may reuse its lists for the next title: a choice changed in the
     # popup between two requests must apply to the second one.
     extra = """
@@ -432,3 +432,63 @@ def test_netflix_request_object_is_left_intact():
         "hevc-main10-L41-dash-cenc-prk",
         "av1-main-L40-dash-cbcs-prk",
     ]
+
+
+def test_request_restored_when_length_unchanged():
+    # H.264 Main adds as many names as it removes here: still put back.
+    extra = """
+    const req = {params: {profiles: ["heaac-2-dash", "playready-h264hpl40-dash",
+      "av1-main-L40-dash-cbcs-prk", "vp9-profile0-L40-dash-cenc"]}};
+    ATTRS["data-surroundflix-codec"] = "h264main";
+    out.sent = JSON.parse(JSON.stringify(req)).params.profiles;
+    out.original = req.params.profiles;
+    """
+    out = run(extra=extra)
+    assert "playready-h264mpl40-dash" in out["sent"]
+    assert out["original"] == [
+        "heaac-2-dash",
+        "playready-h264hpl40-dash",
+        "av1-main-L40-dash-cbcs-prk",
+        "vp9-profile0-L40-dash-cenc",
+    ]
+
+
+def test_unrelated_params_tojson_preserved():
+    extra = """
+    const obj = {params: {a: 1}, toJSON() { return {custom: true}; }};
+    out.custom = JSON.stringify(obj);
+    """
+    assert run(extra=extra)["custom"] == '{"custom":true}'
+
+
+def test_nested_stringify():
+    # A toJSON that calls JSON.stringify itself, inside a patched request.
+    extra = """
+    const req = {params: {profiles: ["heaac-2-dash", "playready-h264hpl40-dash",
+      "av1-main-L40-dash-cbcs-prk"]},
+      extra: {toJSON() { return JSON.stringify({params: {profiles: ["heaac-2-dash"]}}); }}};
+    ATTRS["data-surroundflix-codec"] = "h264";
+    const sent = JSON.parse(JSON.stringify(req));
+    out.sent = sent.params.profiles;
+    out.inner = JSON.parse(sent.extra).params.profiles;
+    out.original = req.params.profiles;
+    """
+    out = run(extra=extra)
+    assert "ddplus-atmos-dash" in out["sent"] and "av1-main-L40-dash-cbcs-prk" not in out["sent"]
+    assert "ddplus-atmos-dash" in out["inner"]
+    assert out["original"] == [
+        "heaac-2-dash",
+        "playready-h264hpl40-dash",
+        "av1-main-L40-dash-cbcs-prk",
+    ]
+
+
+def test_popup_picks_tallest_stream():
+    extra = """
+    JSON.parse(JSON.stringify({result: {video_tracks: [{streams: [
+      {content_profile: "playready-h264hpl40-dash", bitrate: 8000, res_h: 1080},
+      {content_profile: "hevc-main10-L51-dash-cenc-prk", bitrate: 7000, res_h: 2160}]}]}}));
+    out.video = window.__surroundflix.lastManifestVideo;
+    """
+    out = run(extra=extra)
+    assert (out["video"]["height"], out["video"]["bitrate"]) == (2160, 7000)

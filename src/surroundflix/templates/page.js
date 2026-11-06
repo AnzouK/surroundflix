@@ -12,9 +12,6 @@
  * Netflix's code isn't modified, but this depends on the request's
  * "profiles" list, the shape of the answer (audio_tracks, streams,
  * content_profile...) and, for the badges, a few CSS classes of its pages.
- *
- * DRM is untouched: everything still plays through Netflix's normal,
- * licensed playback path.
  */
 (function () {
   "use strict";
@@ -51,8 +48,8 @@
     h264high: /h264hpl|avchigh/,
     h264: /h264|avc/,
     hevc: /hevc|dvhe|hev1|dv5/,
-    av1: /^av1/,
-    vp9: /^vp9/
+    av1: /(?:^|-)av1/,
+    vp9: /(?:^|-)vp9/
   };
 
   var state = {
@@ -171,6 +168,18 @@
 
   // Handles both the flat params.profiles shape and the newer
   // params.profileGroups[].profiles one.
+  // Netflix may reuse its profile lists for the next title, so every list
+  // edited for a request is put back as it was once the string is built.
+  var edited = null;
+
+  function remember(list) {
+    if (!edited) return;
+    for (var i = 0; i < edited.length; i++) {
+      if (edited[i][0] === list) return;
+    }
+    edited.push([list, list.slice()]);
+  }
+
   function walk(node, wanted, depth) {
     if (!node || typeof node !== "object" || depth > MAX_DEPTH) return 0;
     var added = 0;
@@ -182,6 +191,7 @@
     for (var k = 0; k < keys.length; k++) {
       var value = node[keys[k]];
       if (keys[k] === "profiles" && isAudioProfileList(value)) {
+        remember(value);
         added += addProfiles(value, wanted);
       } else if (value && typeof value === "object") {
         added += walk(value, wanted, depth + 1);
@@ -224,7 +234,7 @@
       if (Array.isArray(tracks) && tracks.length) return tracks;
     }
     var keys = Object.keys(node);
-    for (i = 0; i < keys.length; i++) {
+    for (i = 0; i < keys.length && i < 1000; i++) {
       var value = node[keys[i]];
       if (value && typeof value === "object") {
         var deeper = findTracks(value, names, depth + 1);
@@ -360,6 +370,8 @@
     for (i = 0; i < keys.length; i++) {
       var value = node[keys[i]];
       if (keys[i] === "profiles" && Array.isArray(value)) {
+        if (!value.some(isVideoProfile)) continue;
+        remember(value);
         if (codec === "h264main") addMainProfiles(value);
         if (!value.some(function (name) { return isCodec(name, codec); })) continue;
         var kept = value.filter(function (name) { return !isVideoProfile(name) || isCodec(name, codec); });
@@ -381,9 +393,7 @@
     return same.length ? same : streams;
   }
 
-  // Records the video Netflix offers and applies the chosen mode and codec by
-  // removing streams from the list the player picks from. Netflix's player
-  // itself is untouched: it just gets a shorter list.
+  // Trims the manifest's video streams according to the chosen mode and codec.
   function handleVideo(value, mode, codec) {
     var tracks = findTracks(value, VIDEO_TRACK_KEYS, 0);
     if (!tracks) return false;
@@ -399,9 +409,12 @@
     }
     function rate(s) { return number(firstKey(s, BITRATE_KEYS)); }
     function height(s) { return number(firstKey(s, HEIGHT_KEYS)); }
+    // The stream shown in the popup: highest resolution, then highest bitrate.
     var best = null;
     kept.forEach(function (s) {
-      if (rate(s) !== null && (best === null || rate(s) > rate(best))) best = s;
+      if (rate(s) === null) return;
+      var h = height(s) || 0, bh = best === null ? -1 : (height(best) || 0);
+      if (h > bh || (h === bh && rate(s) > rate(best))) best = s;
     });
     if (!best) return false;
     var heights = offered.map(height).filter(function (h) { return h !== null; });
@@ -427,9 +440,8 @@
     return true;
   }
 
-  // "Always the best" also keeps only the highest bitrate of each audio
-  // format (Netflix sometimes offers a format at several bitrates). Formats
-  // aren't mixed: the 5.1 / Atmos choice stays the player's.
+  // "Always the best" also keeps the highest bitrate of each audio format.
+  // The player still chooses between 5.1 and Atmos.
   function lockAudioBitrate(value) {
     var tracks = findTracks(value, AUDIO_TRACK_KEYS, 0) || [];
     tracks.forEach(function (track) {
@@ -473,6 +485,7 @@
   var METADATA_LINE = ".videoMetadata--line";
   var HD_BADGE = '[data-uia="player-feature-badge-hd"]';
   var MODAL = [".detail-modal", ".previewModal--container", '[role="dialog"]'];
+  var CARDS = [".titleCard--container", ".titleCardList--container"];
   // Netflix's own items in a metadata line, in the order they appear. Ours
   // go after the last one present.
   var NATIVE_ITEMS = [".year", ".duration", ".maturity-rating", ".player-feature-badge",
@@ -500,7 +513,7 @@
       found++;
     }
     var keys = Object.keys(node);
-    for (i = 0; i < keys.length; i++) {
+    for (i = 0; i < keys.length && i < 1000; i++) {
       var value = node[keys[i]];
       if (value && typeof value === "object") found += collectBadges(value, depth + 1);
     }
@@ -548,11 +561,20 @@
         if (id) return id;
       }
     }
-    // The open modal's title is in the URL (?jbv=), but only lines inside
-    // that modal may use it.
-    if (!insideModal(line)) return null;
-    var m = /[?&]jbv=(\d+)/.exec((window.location && window.location.search) || "");
+    // The open title is in the URL (?jbv=123 for the modal, /title/123 for
+    // its own page). Only its own metadata line may use it, not the cards of
+    // similar titles listed in it.
+    if (!insideModal(line) || insideCard(line)) return null;
+    var loc = window.location || {};
+    var m = /[?&]jbv=(\d+)/.exec(loc.search || "") || /^\/title\/(\d+)/.exec(loc.pathname || "");
     return m ? m[1] : null;
+  }
+
+  function insideCard(el) {
+    for (var node = el.parentElement; node; node = node.parentElement) {
+      if (matchesAny(node, CARDS)) return true;
+    }
+    return false;
   }
 
   function insideModal(el) {
@@ -589,19 +611,33 @@
     return labels;
   }
 
+  function clearBadges(line) {
+    var ours = line.querySelectorAll("[" + BADGE_ATTR + "]");
+    for (var i = 0; i < ours.length; i++) {
+      if (ours[i].parentElement) ours[i].parentElement.removeChild(ours[i]);
+    }
+    var hd = line.querySelector(HD_BADGE);
+    if (hd) hd.style.display = "";
+    return hd;
+  }
+
   function drawBadges(line) {
     var id = videoIdFor(line);
     var features = id && featuresById[id];
-    if (!features) return;
+    if (!features) {
+      // React may reuse a line we drew on for a title we know nothing about.
+      if (line.hasAttribute(LINE_ATTR)) {
+        clearBadges(line);
+        line.removeAttribute(LINE_ATTR);
+      }
+      return;
+    }
     var native = nativeLabels(line);
     var wanted = badgesFor(features).filter(function (b) { return native.indexOf(b.label) === -1; });
     var key = id + ":" + wanted.map(function (b) { return b.id; }).join(",");
     var ours = line.querySelectorAll("[" + BADGE_ATTR + "]");
-    // React may reuse the line for another title or drop our nodes.
     if (line.getAttribute(LINE_ATTR) === key && ours.length === wanted.length) return;
-    for (var i = 0; i < ours.length; i++) line.removeChild(ours[i]);
-    var hd = line.querySelector(HD_BADGE);
-    if (hd) hd.style.display = "";
+    var hd = clearBadges(line);
     var anchor = lastNativeItem(line);
     wanted.forEach(function (b) {
       var badge = document.createElement("span");
@@ -663,19 +699,16 @@
   var nativeStringify = JSON.stringify;
   var nativeParse = JSON.parse;
 
-  // The request is edited on a copy: Netflix may reuse its own profile
-  // lists for the next title, which must start from the original lists
-  // when the popup's choices have changed in between.
   function stringify(value, replacer, space) {
-    var out = value;
+    var outer = edited, current = [];
+    edited = current;
     try {
       if (looksLikeManifestRequest(value)) {
-        var copy = nativeParse.call(JSON, nativeStringify.call(JSON, value));
         var wanted = wantedProfiles();
-        var added = walk(copy, wanted, 0);
+        var added = walk(value, wanted, 0);
         var codec = codecMode();
-        var removed = codec === "auto" ? 0 : keepCodecProfiles(copy, codec, 0);
-        if (added > 0 || removed > 0) out = copy;
+        if (codec === "auto") state.requestedVideo = null;
+        var removed = codec === "auto" ? 0 : keepCodecProfiles(value, codec, 0);
         if (added > 0) {
           state.requested = wanted.slice();
           state.patchedRequests++;
@@ -686,10 +719,18 @@
         if (removed > 0) log("video profiles limited to", codec, "-", removed, "removed");
       }
     } catch (err) {
-      out = value;
       log("patch skipped:", err);
+    } finally {
+      edited = outer;
     }
-    return nativeStringify.call(this, out, replacer, space);
+    try {
+      return nativeStringify.call(this, value, replacer, space);
+    } finally {
+      for (var i = 0; i < current.length; i++) {
+        current[i][0].length = 0;
+        Array.prototype.push.apply(current[i][0], current[i][1]);
+      }
+    }
   }
 
   function parse(text, reviver) {

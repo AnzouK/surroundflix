@@ -9,7 +9,6 @@ format, or in the server's answers, goes unnoticed here.
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 import urllib.request
 from dataclasses import asdict, dataclass, field
@@ -61,6 +60,12 @@ MAX_DOWNLOAD = 20 * 1024 * 1024  # the playercore is a few MB
 def validate_url(url: str) -> str:
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
+    try:
+        port = parsed.port
+    except ValueError:
+        port = -1
+    if parsed.username or parsed.password or port not in (None, 443):
+        raise ValueError(f"Refusing to fetch {url!r}: no credentials or custom port")
     if parsed.scheme != "https" or not any(
         host == allowed or host.endswith("." + allowed) for allowed in ALLOWED_HOSTS
     ):
@@ -128,23 +133,3 @@ def load(url: str | None = None, file: Path | None = None) -> Report:
     if url is None:
         raise ValueError("Give a playercore URL or a local file")
     return analyze(_get(url), url=url)
-
-
-def compare_with_state(report: Report, state_file: Path) -> dict:
-    """Compare against the last known report and return what changed."""
-    previous = None
-    if state_file.exists():
-        previous = json.loads(state_file.read_text("utf-8"))
-    changed = previous is None or previous.get("sha256") != report.sha256
-    return {
-        "changed": changed,
-        "previous_version": previous.get("version") if previous else None,
-        "current_version": report.version,
-        "ok": report.ok,
-        "missing": report.missing,
-    }
-
-
-def save_state(report: Report, state_file: Path) -> None:
-    state_file.parent.mkdir(parents=True, exist_ok=True)
-    state_file.write_text(json.dumps(report.to_dict(), indent=2) + "\n", "utf-8")

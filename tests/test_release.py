@@ -15,13 +15,13 @@ DAY = datetime.date(2026, 11, 6)
 HEAD = "# Changelog\n\nIntro.\n\n"
 
 
-def test_existing_section_gets_the_date():
+def test_existing_section_dated():
     text = HEAD + "## [Unreleased]\n\n## [0.1.0]\n\nFirst version.\n"
     out = release.release_changelog(text, "0.1.0", DAY)
     assert out == HEAD + "## [Unreleased]\n\n## [0.1.0] - 2026-11-06\n\nFirst version.\n"
 
 
-def test_unreleased_entries_become_the_new_version():
+def test_unreleased_becomes_version():
     text = (
         HEAD + "## [Unreleased]\n\n### Added\n\n- Codec menu.\n\n## [0.1.0] - 2026-11-06\n\nOld.\n"
     )
@@ -64,7 +64,7 @@ def released_changelog():
     return release.release_changelog(text, version, DAY)
 
 
-def test_the_real_changelog_can_be_released():
+def test_real_changelog_releasable():
     import surroundflix
 
     text = released_changelog()
@@ -73,28 +73,24 @@ def test_the_real_changelog_can_be_released():
     )
 
 
-def test_release_notes_are_the_section_plus_the_install_guide(tmp_path):
-    """Runs the release workflow's own awk on a released CHANGELOG."""
-    import shutil
-    import subprocess
+def test_release_notes():
+    text = (
+        HEAD
+        + "## [Unreleased]\n\n## [1.1.0] - 2026-11-06\n\n### Fixed\n\n- X.\n\n## [1.0.0] - 2026-11-01\n\nOld.\n"
+    )
+    notes = release.release_notes(text, "1.1.0", "## Install\n\nSteps.\n")
+    assert notes.startswith("### Fixed\n\n- X.\n\n## Install")
+    assert "Old." not in notes and "## [" not in notes
+    assert "shasum -a 256 -c SHA256SUMS.txt" in notes
+    with pytest.raises(ValueError, match="isn't dated yet"):
+        release.release_notes(HEAD + "## [1.1.0]\n\nX.\n", "1.1.0", "")
 
+
+def test_notes_cli(capsys):
     import surroundflix
 
-    if shutil.which("awk") is None:
-        pytest.skip("awk is not installed")
-    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
-    awk = re.search(r"awk -v v=\"\$VERSION\" '(.*?)' CHANGELOG.md", workflow, re.S).group(1)
-    version = surroundflix.__version__
-    changelog = tmp_path / "CHANGELOG.md"
-    changelog.write_text(released_changelog())
-    notes = subprocess.run(
-        ["awk", "-v", f"v={version}", awk, str(changelog)],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    assert notes.strip() and "## [" not in notes
-    assert "release-install.md" in workflow
+    assert release.main(["notes", surroundflix.__version__]) == 0
+    assert "Check a download" in capsys.readouterr().out
 
 
 def test_tag_needs_a_dated_section():
@@ -114,7 +110,7 @@ def test_dry_runs_change_nothing(capsys):
     assert (ROOT / "CHANGELOG.md").read_text() == before
 
 
-def test_showcase_is_redrawn_with_the_new_version(tmp_path, monkeypatch):
+def test_showcase_redrawn(tmp_path, monkeypatch):
     svg = tmp_path / "showcase.svg"
     svg.write_text((ROOT / "design" / "showcase.svg").read_text())
     monkeypatch.setattr(release, "SHOWCASE", svg)

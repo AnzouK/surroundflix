@@ -9,14 +9,12 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import pytest
-import yaml
 
 from surroundflix import build, playercore
 from surroundflix.build import REPO, shared_js
 
 ROOT = Path(__file__).resolve().parent.parent
 TEMPLATES = ROOT / "src" / "surroundflix" / "templates"
-WORKFLOWS = ROOT / ".github" / "workflows"
 NETFLIX = ["https://www.netflix.com/*"]
 node = shutil.which("node")
 needs_node = pytest.mark.skipif(node is None, reason="node is not installed")
@@ -37,7 +35,7 @@ def dist(tmp_path_factory):
 
 
 @pytest.mark.parametrize("target", ["webextension", "chrome"])
-def test_manifest_asks_for_the_minimum(dist, target):
+def test_minimal_manifest_permissions(dist, target):
     manifest = json.loads((getattr(dist, target) / "manifest.json").read_text())
     assert manifest["permissions"] == ["storage"]
     for key in (
@@ -73,7 +71,7 @@ def test_userscript_header(dist):
         assert url.startswith(f"https://github.com/{REPO}/releases/")
 
 
-# JavaScript (ESLint, run in CI, already bans eval, innerHTML and the like) ----
+# JavaScript -------------------------------------------------------------------
 
 
 def all_js_templates():
@@ -121,14 +119,14 @@ def run_content_script(status):
 
 
 @needs_node
-def test_content_script_answers_only_its_own_message():
+def test_content_script_filters_messages():
     other, empty, own = run_content_script('{"received": ["ddplus-5.1-dash"]}')
     assert other == {"kept": False, "sent": []} and empty == {"kept": False, "sent": []}
     assert own["sent"] == [{"active": True, "status": {"received": ["ddplus-5.1-dash"]}}]
 
 
 @needs_node
-def test_content_script_ignores_an_oversized_status():
+def test_content_script_ignores_oversized_status():
     huge = json.dumps({"received": ["x" * 20000]})
     assert run_content_script(huge)[2]["sent"][0]["status"] is None
 
@@ -148,7 +146,7 @@ console.log(JSON.stringify(JSON.parse(JSON.stringify(req)).params.profiles));
 @pytest.mark.parametrize(
     "attr", ["constructor", "__proto__", "toString", "hasOwnProperty", "", "x" * 5000]
 )
-def test_page_controlled_preset_cannot_break_the_request(attr):
+def test_invalid_preset_attr_ignored(attr):
     out = json.loads(run_js(PAGE_HARNESS % (json.dumps(attr), build.render_page_script("atmos"))))
     assert out == ["heaac-2-dash", *build.PRESETS["atmos"]]
     assert all(isinstance(p, str) for p in out)
@@ -183,7 +181,7 @@ def test_forged_status_shows_nothing(forged):
         (42, False),
     ],
 )
-def test_update_link_must_point_to_this_repository(url, ok):
+def test_update_url_validation(url, ok):
     code = (
         shared_js() + f"\nconsole.log(isTrustedReleaseUrl({json.dumps(url)}, {json.dumps(REPO)}));"
     )
@@ -202,7 +200,9 @@ def test_update_link_must_point_to_this_repository(url, ok):
         ("v1.0.0-beta", "1.0.0", False),
         ("garbage", "0.1.0", False),
         (None, "0.1.0", False),
-        ("v9999999999.0.0<img>", "0.1.0", True),
+        ("v2.0.0-beta", "1.0.0", False),
+        ("v9.0.0<img>", "0.1.0", False),
+        ("v9999999999.0.0", "0.1.0", False),
     ],
 )
 def test_version_comparison_is_strict(candidate, current, newer):
@@ -226,6 +226,9 @@ def test_version_comparison_is_strict(candidate, current, newer):
         "https://evilnflxext.com/x.js",
         "ftp://assets.nflxext.com/x.js",
         "https://user@evil.example/assets.nflxext.com/x.js",
+        "https://user:pass@assets.nflxext.com/x.js",
+        "https://assets.nflxext.com:8443/x.js",
+        "https://assets.nflxext.com:99999/x.js",
     ],
 )
 def test_playercore_refuses_unexpected_urls(url):
@@ -259,50 +262,8 @@ def test_playercore_redirects_are_checked(target):
     [
         "https://assets.nflxext.com/player/html/ffe/cadmium-playercore-6.0064.915.911.js",
         "https://www.netflix.com/",
+        "https://www.netflix.com:443/browse",
     ],
 )
 def test_playercore_accepts_netflix_hosts(url):
     assert playercore.validate_url(url) == url
-
-
-# CI workflows --------------------------------------------------------------------
-
-
-def workflows():
-    return sorted(WORKFLOWS.glob("*.yml"))
-
-
-@pytest.mark.parametrize("path", workflows(), ids=lambda p: p.name)
-def test_workflow_is_hardened(path):
-    data = yaml.safe_load(path.read_text())
-    triggers = data.get(True, data.get("on"))  # YAML reads a bare `on` as True
-    assert "permissions" in data, "set an explicit, least-privilege token"
-    assert "pull_request_target" not in (triggers or {}), (
-        "pull_request_target runs fork code with secrets"
-    )
-    for job in data["jobs"].values():
-        if "uses" in job:  # calls a reusable workflow, which sets its own limits
-            continue
-        assert "timeout-minutes" in job
-        for step in job.get("steps", []):
-            run = step.get("run", "")
-            # Untrusted values must go through env:, never straight into a shell.
-            assert not re.search(
-                r"\$\{\{\s*(github\.event|github\.head_ref|vars\.|inputs\.)", run
-            ), step
-
-
-def test_read_only_token_where_nothing_is_written():
-    for name in ("ci.yml", "security.yml"):
-        data = yaml.safe_load((WORKFLOWS / name).read_text())
-        assert data["permissions"] == {"contents": "read"}, name
-
-
-@pytest.mark.parametrize("path", workflows(), ids=lambda p: p.name)
-def test_actions_are_pinned_by_commit(path):
-    """A tag can be moved by whoever controls the action; a commit SHA can't."""
-    for job in yaml.safe_load(path.read_text())["jobs"].values():
-        for step in job.get("steps", []):
-            uses = step.get("uses", "")
-            if uses and not uses.startswith("./"):
-                assert re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", uses), uses

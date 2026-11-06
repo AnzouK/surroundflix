@@ -14,6 +14,9 @@ pushes the tag. The tag starts .github/workflows/release.yml, which runs
 the CI again, builds the .dmg, the userscript and the Chrome zip, and
 publishes the release with that CHANGELOG section as notes.
 
+notes VERSION prints the release notes (the CHANGELOG section and the
+install guide); the release workflow uses it.
+
 --dry-run shows what would happen and changes nothing.
 """
 
@@ -33,6 +36,7 @@ REPO = "AnzouK/surroundflix"
 CHANGELOG = ROOT / "CHANGELOG.md"
 INIT = ROOT / "src" / "surroundflix" / "__init__.py"
 SHOWCASE = ROOT / "design" / "showcase.svg"
+INSTALL_GUIDE = ROOT / ".github" / "release-install.md"
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -61,7 +65,7 @@ def release_changelog(text: str, version: str, day: datetime.date) -> str:
         if pending:
             raise ValueError(
                 f"[Unreleased] has entries: move them into [{version}], or release "
-                "them as a new version (python3 scripts/release.py X.Y.Z)"
+                "them as a new version (python3 scripts/release.py prepare X.Y.Z)"
             )
         return text.replace(line, heading, 1)
     if not pending:
@@ -112,6 +116,7 @@ def code_version() -> str:
 
 def redraw_showcase(version: str) -> None:
     """The README picture shows the version: redraw it at the same height."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
     import make_showcase
 
     svg = SHOWCASE.read_text()
@@ -119,10 +124,20 @@ def redraw_showcase(version: str) -> None:
     SHOWCASE.write_text(make_showcase.compose(height, version), "utf-8")
 
 
+def release_notes(text: str, version: str, guide: str) -> str:
+    """The dated section's body, then the install guide."""
+    body = dated_section(text, version).split("\n", 1)[1].strip()
+    if not body:
+        raise ValueError(f"[{version}] is empty in CHANGELOG.md")
+    return (
+        f"{body}\n\n{guide.strip()}\n\nCheck a download with `shasum -a 256 -c SHA256SUMS.txt`.\n"
+    )
+
+
 def prepare(version: str | None, dry_run: bool) -> int:
     version = version or code_version()
     tag, branch = f"v{version}", f"release/v{version}"
-    today = datetime.date.today()  # your computer's date
+    today = datetime.date.today()
     changelog = release_changelog(CHANGELOG.read_text(), version, today)
     init = set_version(INIT.read_text(), version)
     if not dry_run:
@@ -171,10 +186,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--dry-run", action="store_true", help="show the changes only")
     t = sub.add_parser("tag", help="tag main once the release branch is merged")
     t.add_argument("--dry-run", action="store_true", help="show the changes only")
+    n = sub.add_parser("notes", help="print the release notes of a version")
+    n.add_argument("version")
     args = parser.parse_args(argv)
     try:
         if args.step == "prepare":
             return prepare(args.version, args.dry_run)
+        if args.step == "notes":
+            print(release_notes(CHANGELOG.read_text(), args.version, INSTALL_GUIDE.read_text()))
+            return 0
         return tag_release(args.dry_run)
     except (ValueError, RuntimeError, subprocess.CalledProcessError) as err:
         print(f"surroundflix release: {err}", file=sys.stderr)

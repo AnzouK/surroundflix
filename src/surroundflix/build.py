@@ -32,7 +32,6 @@ from .profiles import (
 )
 
 NETFLIX_MATCH = "https://www.netflix.com/*"
-# Change this once, here, if the repository moves.
 REPO = "AnzouK/surroundflix"
 HOMEPAGE = f"https://github.com/{REPO}"
 # Userscript managers check this file for a newer @version.
