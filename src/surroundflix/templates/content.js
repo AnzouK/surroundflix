@@ -30,16 +30,14 @@
       setPreset(stored && stored.preset);
       setVideo(stored && stored.videoQuality);
       setCodec(stored && stored.videoCodec);
-    }, function () { /* no stored choice: page.js uses its defaults */ });
+    }, function () {});
     api.storage.onChanged.addListener(function (changes, area) {
       if (area !== "local") return;
       if (changes.preset) setPreset(changes.preset.newValue);
       if (changes.videoQuality) setVideo(changes.videoQuality.newValue);
       if (changes.videoCodec) setCodec(changes.videoCodec.newValue);
     });
-  } catch (err) {
-    // Storage unavailable: page.js falls back to the default preset.
-  }
+  } catch (err) {}
 
   // The popup asks for the status page.js mirrors on <html>.
   try {
@@ -47,13 +45,14 @@
       if (!message || message.type !== "surroundflix-status") return false;
       var raw = root.getAttribute("data-surroundflix-status");
       var status = null;
-      try { status = raw ? JSON.parse(raw) : null; } catch (err) { /* forged or partial value: report no status */ }
+      // Any page script can write this attribute; a real status is under 2 KB.
+      if (raw && raw.length <= 16384) {
+        try { status = JSON.parse(raw); } catch (err) {}
+      }
       sendResponse({ active: !!raw, status: status });
       return false;
     });
-  } catch (err) {
-    // No messaging API (older browser): the popup just shows no status.
-  }
+  } catch (err) {}
 
   if (INJECT) {
     var script = document.createElement("script");

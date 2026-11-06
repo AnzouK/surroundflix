@@ -66,6 +66,13 @@ globalThis.document = {
   querySelectorAll: function (s) { return html.querySelectorAll(s); },
 };
 globalThis.MediaSource = { isTypeSupported: function () { return %(dolby)s; } };
+globalThis.__observers = [];
+globalThis.MutationObserver = function (cb) { this.cb = cb; };
+MutationObserver.prototype.observe = function (target, opts) {
+  __observers.push({cb: this.cb, opts: opts}); };
+function attributesChanged() {
+  __observers.filter(function (o) { return o.opts.attributes; }).forEach(function (o) { o.cb([]); });
+}
 function tracking(id) {
   return h("div", {"class": "ptrack-content",
     "data-ui-tracking-context": encodeURIComponent(JSON.stringify({video_id: id}))});
@@ -197,11 +204,15 @@ def test_a_reused_line_follows_the_new_title():
 def test_open_modal_id_comes_from_the_url():
     extra = """
     var modal = line([h("span", {"class": "duration"}, "1 h")]);
-    body.appendChild(h("div", {}, "", [modal]));
-    setTimeout(function () { globalThis.__extra = labels(modal); }, 200);
+    var outside = line([h("span", {"class": "duration"}, "2 h")]);
+    body.appendChild(h("div", {"class": "detail-modal"}, "", [modal]));
+    body.appendChild(h("div", {}, "", [outside]));
+    setTimeout(function () { globalThis.__extra = [labels(modal), labels(outside)]; }, 200);
     """
     out = run(search="?jbv=70281312", extra=extra)
-    assert out["extra"] == ["duration", "Ultra HD 4K", "5.1"]
+    assert out["extra"][0] == ["duration", "Ultra HD 4K", "5.1"]
+    # A line outside the modal doesn't borrow the modal's title.
+    assert out["extra"][1] == ["duration"]
 
 
 def test_netflix_badges_are_not_repeated():
@@ -219,3 +230,14 @@ def test_badge_lists_are_sanitised():
       + '{"videoId":9,"playbackBadges":[1,{"a":2},"AUDIO_FIVE_DOT_ONE"]}]}}');
     """
     assert run(extra=extra)["titles"] == 3
+
+
+def test_badges_follow_a_change_of_audio_choice():
+    # The popup switches to "5.1 only" while the page is open: Atmos becomes 5.1.
+    extra = """
+    setTimeout(function () {
+      ATTRS["data-surroundflix-preset"] = "surround";
+      attributesChanged();
+    }, 150);
+    """
+    assert run(extra=extra)["witcher"][-2:] == ["5.1", "accessibility"]

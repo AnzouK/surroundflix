@@ -86,8 +86,18 @@ function isNewerVersion(candidate, current) {
 // Only links to this repository's releases are shown as "Download", so a
 // tampered API answer can't turn the button into a link elsewhere.
 function isTrustedReleaseUrl(url, repo) {
-  var prefix = "https://github.com/" + repo + "/releases/";
-  return typeof url === "string" && url.indexOf(prefix) === 0 && !/[\s"'<>]/.test(url);
+  if (typeof url !== "string" || /[\s"'<>\\]/.test(url)) return false;
+  var parsed;
+  try {
+    parsed = new URL(url);
+  } catch (err) {
+    return false;
+  }
+  // The parser resolves "..", "%2e%2e" and the like, so the path checked is
+  // the one the browser would open.
+  return parsed.protocol === "https:" && parsed.host === "github.com" &&
+    !parsed.username && !parsed.password &&
+    parsed.pathname.indexOf("/" + repo + "/releases/") === 0;
 }
 
 // "1080p · 5.8 Mb/s" from {height, bitrate (kb/s)}, with the language's
@@ -101,10 +111,16 @@ function codecLabel(name) {
   return Object.prototype.hasOwnProperty.call(CODEC_LABELS, name) ? CODEC_LABELS[name] : "";
 }
 
+// A positive whole-ish number no larger than `max`, as Netflix would send.
+// The status comes from the page, so anything else is ignored.
+function plausible(n, max) {
+  return typeof n === "number" && isFinite(n) && n > 0 && n <= max;
+}
+
 function formatVideo(video, lang) {
-  if (!video || typeof video.bitrate !== "number" || !(video.bitrate > 0)) return "";
+  if (!video || !plausible(video.bitrate, 1000000)) return "";
   var parts = [];
-  if (typeof video.height === "number" && video.height > 0) parts.push(video.height + "p");
+  if (plausible(video.height, 10000)) parts.push(Math.round(video.height) + "p");
   var codec = codecLabel(video.codec);
   if (codec) {
     var range = Object.prototype.hasOwnProperty.call(RANGE_LABELS, video.dynamicRange) ? RANGE_LABELS[video.dynamicRange] : "";

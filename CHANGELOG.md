@@ -11,6 +11,28 @@ under [Unreleased].
 
 ## [Unreleased]
 
+### Fixed
+
+- A change made in the popup now applies to the next title without reloading
+  the page: Netflix's own request is no longer edited in place.
+- Badges update as soon as the audio choice changes, and a title card no
+  longer borrows the badges of the title open in the modal.
+- "Always the best" picks the highest resolution first, then the highest
+  bitrate at it (an 8 Mb/s 1080p stream no longer beats 2160p).
+- Quality modes still apply when some of Netflix's streams have no size.
+- A stored codec that can't be decoded any more is reset to Automatic.
+- The app window no longer reloads on focus once the extension is on, so an
+  update result stays on screen.
+
+### Security
+
+- The update link is checked after the browser resolves the path (`..`,
+  `%2e%2e`), and `surroundflix check` validates every redirect.
+- Oversized or implausible values in the status written on the page are
+  ignored by the popup.
+- Releases run the full CI first and are refused unless the tag is on
+  `main`; GitHub Actions are pinned by commit.
+
 ## [1.0.0] - 2026-11-06
 
 Initial release. Surroundflix asks Netflix for its Dolby 5.1 and Atmos

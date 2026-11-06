@@ -20,7 +20,7 @@ var REPO = /*__SURROUNDFLIX_REPO__*/ "owner/surroundflix";
   // One of the menu values: "auto", "en", "fr", "pt".
   function storedLanguage() {
     var value = "auto";
-    try { value = localStorage.getItem(LANG_KEY) || "auto"; } catch (err) { /* storage blocked: automatic language */ }
+    try { value = localStorage.getItem(LANG_KEY) || "auto"; } catch (err) {}
     if (value.indexOf("pt") === 0) value = "pt";
     return I18N.menu[value] ? value : "auto";
   }
@@ -78,7 +78,7 @@ var REPO = /*__SURROUNDFLIX_REPO__*/ "owner/surroundflix";
     });
     select.value = storedLanguage();
     select.addEventListener("change", function () {
-      try { localStorage.setItem(LANG_KEY, select.value); } catch (err) { /* not remembered, still applied below */ }
+      try { localStorage.setItem(LANG_KEY, select.value); } catch (err) {}
       render();
     });
   }
@@ -127,12 +127,16 @@ var REPO = /*__SURROUNDFLIX_REPO__*/ "owner/surroundflix";
   $("check-updates").addEventListener("click", checkUpdates);
   buildLanguageMenu();
 
-  // Back from Safari's settings: reload, so Swift reports the new state.
+  // Back from Safari's settings while the extension was still off: reload,
+  // so Swift reports the new state. Once it's on, nothing to refresh, and a
+  // reload would wipe an update result the user came back to click.
   if (bridge) {
     var leftAt = 0;
     window.addEventListener("blur", function () { leftAt = Date.now(); });
     window.addEventListener("focus", function () {
-      if (leftAt && Date.now() - leftAt > 1000) location.reload();
+      var away = leftAt && Date.now() - leftAt > 1000;
+      leftAt = 0;
+      if (away && enabled !== true) location.reload();
     });
   }
 

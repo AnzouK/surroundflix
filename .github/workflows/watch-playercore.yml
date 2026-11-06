@@ -1,12 +1,9 @@
-# Checks Netflix's player once a day. When the playercore changes, the new
-# report is committed; if something Surroundflix relies on disappears, an
-# issue is opened so the maintainer knows before users start complaining.
+# Daily check that Netflix's player still knows the profile names
+# Surroundflix asks for. Opens one issue when a name disappears; a fetch
+# that fails (Netflix often answers 403 to CI runners) only fails the job.
 #
-# Netflix may only show the playercore URL to signed-in pages. If discovery
-# fails, set a repository variable PLAYERCORE_URL (Settings > Secrets and
-# variables > Actions > Variables) to the URL copied from the browser's
-# Network tab. `surroundflix check` only fetches https:// URLs on Netflix's
-# own hosts, whatever the variable contains.
+# If the playercore URL can't be found, set the repository variable
+# PLAYERCORE_URL to one copied from the browser's Network tab.
 
 name: Watch Netflix playercore
 
@@ -20,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
   issues: write
 
 jobs:
@@ -28,9 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # Credentials are kept: the job pushes the updated state file.
-      - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
       - run: pip install -e .
@@ -41,33 +39,34 @@ jobs:
           PLAYERCORE_URL: ${{ vars.PLAYERCORE_URL }}
         run: |
           set +e
-          args=(--state .github/playercore-state.json --update-state --json)
+          args=(--json)
           if [ -n "$PLAYERCORE_URL" ]; then args+=(--url "$PLAYERCORE_URL"); fi
           surroundflix check "${args[@]}" > report.json
           echo "status=$?" >> "$GITHUB_OUTPUT"
           cat report.json
 
-      - name: Commit new state
-        if: steps.check.outputs.status != '2'
-        run: |
-          if [ -n "$(git status --porcelain .github/playercore-state.json)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add .github/playercore-state.json
-            git commit -m "chore: record new Netflix playercore"
-            git push
-          fi
-
-      - name: Open an issue if something broke
-        if: steps.check.outputs.status != '0'
+      - name: Report a missing profile
+        if: steps.check.outputs.status == '1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          title="Netflix's player no longer lists a profile Surroundflix uses"
           {
-            echo "The daily check could not confirm Surroundflix still works."
+            echo "The daily check found a profile name missing from Netflix's player."
             echo
             echo '```json'
-            cat report.json 2>/dev/null || echo "no report: discovery failed, set PLAYERCORE_URL"
+            cat report.json
             echo '```'
           } > body.md
-          gh issue create --title "Playercore check failed ($(date -u +%F))" --body-file body.md
+          open=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file body.md
+          else
+            gh issue create --title "$title" --body-file body.md
+          fi
+
+      - name: Fail when the check couldn't run
+        if: steps.check.outputs.status == '2'
+        run: |
+          echo "::error::The playercore couldn't be found or fetched; nothing was checked."
+          exit 1

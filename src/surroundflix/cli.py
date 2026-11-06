@@ -64,20 +64,21 @@ def _cmd_dmg(args: argparse.Namespace) -> int:
     return 0
 
 
+# Exit codes of `check`: 0 everything found, 1 something Surroundflix relies
+# on is missing, 2 the playercore couldn't be found or fetched (inconclusive).
 def _cmd_check(args: argparse.Namespace) -> int:
     url = args.url
-    if args.file is None and url is None:
-        url = playercore.discover_url()
-        if url is None:
-            print(
-                "Could not find the playercore URL on netflix.com. Pass --url or --file.",
-                file=sys.stderr,
-            )
-            return 2
-
     try:
+        if args.file is None and url is None:
+            url = playercore.discover_url()
+            if url is None:
+                print(
+                    "Could not find the playercore URL on netflix.com. Pass --url or --file.",
+                    file=sys.stderr,
+                )
+                return 2
         report = playercore.load(url=url, file=Path(args.file) if args.file else None)
-    except ValueError as err:
+    except (ValueError, OSError) as err:  # OSError covers network errors and HTTP 403
         print(err, file=sys.stderr)
         return 2
     out = report.to_dict()

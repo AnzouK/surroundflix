@@ -24,14 +24,13 @@ import datetime
 import re
 
 # Runs git with fixed arguments, never a shell.
-import subprocess  # nosec B404
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 REPO = "AnzouK/surroundflix"
 CHANGELOG = ROOT / "CHANGELOG.md"
-PYPROJECT = ROOT / "pyproject.toml"
 INIT = ROOT / "src" / "surroundflix" / "__init__.py"
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")
 
@@ -70,20 +69,14 @@ def release_changelog(text: str, version: str, day: datetime.date) -> str:
     return text[:start] + f"\n{heading}\n\n{pending}\n\n" + text[end:]
 
 
-def set_version(pyproject: str, init: str, version: str) -> tuple[str, str]:
-    pyproject = re.sub(
-        r'^version = "[^"]+"', f'version = "{version}"', pyproject, count=1, flags=re.M
-    )
-    init = re.sub(
+def set_version(init: str, version: str) -> str:
+    return re.sub(
         r'^__version__ = "[^"]+"', f'__version__ = "{version}"', init, count=1, flags=re.M
     )
-    return pyproject, init
 
 
 def git(*args: str, capture: bool = True) -> str:
-    result = subprocess.run(  # nosec B603 B607
-        ["git", *args], cwd=ROOT, check=True, capture_output=capture, text=True
-    )
+    result = subprocess.run(["git", *args], cwd=ROOT, check=True, capture_output=capture, text=True)
     return (result.stdout or "").strip()
 
 
@@ -121,7 +114,7 @@ def prepare(version: str | None, dry_run: bool) -> int:
     tag, branch = f"v{version}", f"release/v{version}"
     today = datetime.date.today()  # your computer's date
     changelog = release_changelog(CHANGELOG.read_text(), version, today)
-    pyproject, init = set_version(PYPROJECT.read_text(), INIT.read_text(), version)
+    init = set_version(INIT.read_text(), version)
     if not dry_run:
         check_repo(tag)
     print(
@@ -132,9 +125,8 @@ def prepare(version: str | None, dry_run: bool) -> int:
         return 0
     git("checkout", "-b", branch)
     CHANGELOG.write_text(changelog, "utf-8")
-    PYPROJECT.write_text(pyproject, "utf-8")
     INIT.write_text(init, "utf-8")
-    git("add", str(CHANGELOG), str(PYPROJECT), str(INIT))
+    git("add", str(CHANGELOG), str(INIT))
     git("commit", "--quiet", "-m", f"chore(release): {tag}")
     git("push", "--quiet", "-u", "origin", branch, capture=False)
     print(f"Pushed {branch}. Open its pull request, merge it once CI is green:")

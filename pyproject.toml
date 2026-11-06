@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "surroundflix"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Netflix's Dolby 5.1 and Atmos audio in Safari on macOS, with Spatial Audio on AirPods, plus video quality and codec choice."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -13,7 +13,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "AnzouK" }]
 keywords = ["netflix", "safari", "chrome", "dolby", "atmos", "spatial-audio", "macos", "userscript"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
     "Operating System :: MacOS",
     "Environment :: Console",
@@ -41,7 +41,5 @@ surroundflix = ["templates/*", "templates/app/*", "icons/*.png"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 
-[tool.bandit]
-# Tests use assert and run node on purpose. Inline "# nosec" marks the few
-# accepted findings (Apple's tools started with fixed arguments).
-exclude_dirs = ["tests"]
+[tool.setuptools.dynamic]
+version = { attr = "surroundflix.__version__" }

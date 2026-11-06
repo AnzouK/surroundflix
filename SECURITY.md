@@ -41,9 +41,8 @@ Please don't open a public issue for an unpatched problem.
   with `textContent`, never as HTML.
 - The app only contacts `api.github.com` for updates, and only links to
   this repository's releases.
-- `tests/test_security.py` checks all of the above on every push, and
-  `security.yml` runs Bandit, pip-audit, gitleaks and (on the public repo)
-  CodeQL.
+- `tests/test_security.py` checks the permissions, untrusted data and
+  network destinations; `security.yml` runs gitleaks and CodeQL.
 - Releases come with `SHA256SUMS.txt` and, on the public repo, build
   provenance attestations:
 

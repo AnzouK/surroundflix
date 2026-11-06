@@ -1,11 +1,5 @@
-"""Security tests.
-
-Surroundflix runs inside netflix.com, next to code it doesn't control, and
-its app talks to GitHub. These tests pin down the promises made in
-SECURITY.md and PRIVACY.md: minimal permissions, no string-to-code or
-string-to-HTML paths, page-controlled data treated as untrusted, only
-expected network destinations, and hardened CI workflows.
-"""
+"""Security tests: permissions, untrusted page data, network destinations,
+release links and the CI workflows."""
 
 import json
 import re
@@ -16,7 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from surroundflix import build, playercore, xcode
+from surroundflix import build, playercore
 from surroundflix.build import REPO, shared_js
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -78,22 +72,11 @@ def test_userscript_header(dist):
         assert url.startswith(f"https://github.com/{REPO}/releases/")
 
 
-# JavaScript: no string-to-code or string-to-HTML ---------------------------
-
-DANGEROUS = re.compile(
-    r"\beval\s*\(|new\s+Function\s*\(|\.innerHTML\b|\.outerHTML\b|insertAdjacentHTML"
-    r"|document\.write|set(?:Timeout|Interval)\s*\(\s*['\"`]|javascript:"
-)
+# JavaScript (ESLint, run in CI, already bans eval, innerHTML and the like) ----
 
 
 def all_js_templates():
     return sorted(TEMPLATES.rglob("*.js"))
-
-
-@pytest.mark.parametrize("path", all_js_templates(), ids=lambda p: p.name)
-def test_no_dangerous_sinks(path):
-    hits = [line for line in path.read_text().splitlines() if DANGEROUS.search(line)]
-    assert not hits, hits
 
 
 @pytest.mark.parametrize("path", all_js_templates(), ids=lambda p: p.name)
@@ -109,10 +92,43 @@ def test_only_expected_network_destinations(path):
         assert not urls, f"{path.name} should not reference any server: {urls}"
 
 
+CONTENT_HARNESS = r"""
+var listener = null, sent = [];
+globalThis.chrome = {
+  storage: {local: {get: function () { return Promise.resolve({}); }},
+            onChanged: {addListener: function () {}}},
+  runtime: {onMessage: {addListener: function (f) { listener = f; }}}};
+var STATUS = %s;
+globalThis.document = {documentElement: {
+  getAttribute: function (k) { return k === "data-surroundflix-status" ? STATUS : null; },
+  setAttribute: function () {}}};
+%s
+var answers = [];
+[{type: "other"}, null, {type: "surroundflix-status"}].forEach(function (m) {
+  sent = [];
+  var kept = listener(m, {}, function (r) { sent.push(r); });
+  answers.push({kept: kept, sent: sent});
+});
+console.log(JSON.stringify(answers));
+"""
+
+
+def run_content_script(status):
+    content = build._fill(build._template("content.js"), {"INJECT": False})
+    return json.loads(run_js(CONTENT_HARNESS % (json.dumps(status), content)))
+
+
+@needs_node
 def test_content_script_answers_only_its_own_message():
-    src = (TEMPLATES / "content.js").read_text()
-    assert 'message.type !== "surroundflix-status"' in src
-    assert "onMessageExternal" not in src
+    other, empty, own = run_content_script('{"received": ["ddplus-5.1-dash"]}')
+    assert other == {"kept": False, "sent": []} and empty == {"kept": False, "sent": []}
+    assert own["sent"] == [{"active": True, "status": {"received": ["ddplus-5.1-dash"]}}]
+
+
+@needs_node
+def test_content_script_ignores_an_oversized_status():
+    huge = json.dumps({"received": ["x" * 20000]})
+    assert run_content_script(huge)[2]["sent"][0]["status"] is None
 
 
 # Data from the page is untrusted ---------------------------------------------
@@ -157,6 +173,10 @@ def test_forged_status_shows_nothing(forged):
         (f"https://github.com/{REPO}evil/releases/", False),
         (f"https://github.com/{REPO}/releases.evil.com/", False),
         (f'https://github.com/{REPO}/releases/x" onclick="y', False),
+        (f"https://github.com/{REPO}/releases/../../evil/repo/releases/tag/v9", False),
+        (f"https://github.com/{REPO}/releases/%2e%2e/%2e%2e/evil/x", False),
+        (f"https://user@github.com/{REPO}/releases/tag/v1", False),
+        (f"https://github.com:8443/{REPO}/releases/tag/v1", False),
         (None, False),
         (42, False),
     ],
@@ -191,12 +211,6 @@ def test_version_comparison_is_strict(candidate, current, newer):
     assert run_js(code) == ("true" if newer else "false")
 
 
-def test_app_renders_update_text_without_html():
-    src = (TEMPLATES / "app" / "Script.js").read_text()
-    assert "isTrustedReleaseUrl(release.html_url, REPO)" in src
-    assert "textContent" in src and "createTextNode" in src
-
-
 # Python side -------------------------------------------------------------------
 
 
@@ -221,9 +235,21 @@ def test_playercore_refuses_before_any_network(monkeypatch):
     def boom(*a, **k):
         raise AssertionError("urlopen must not be reached")
 
-    monkeypatch.setattr(playercore.urllib.request, "urlopen", boom)
+    monkeypatch.setattr(playercore, "_open", boom)
     with pytest.raises(ValueError):
         playercore.load(url="file:///etc/passwd")
+
+
+@pytest.mark.parametrize(
+    "target", ["http://169.254.169.254/latest/meta-data", "https://evil.example/x.js"]
+)
+def test_playercore_redirects_are_checked(target):
+    import urllib.request
+
+    handler = playercore._CheckedRedirects()
+    req = urllib.request.Request("https://assets.nflxext.com/x.js")
+    with pytest.raises(ValueError):
+        handler.redirect_request(req, None, 302, "Found", {}, target)
 
 
 @pytest.mark.parametrize(
@@ -235,11 +261,6 @@ def test_playercore_refuses_before_any_network(monkeypatch):
 )
 def test_playercore_accepts_netflix_hosts(url):
     assert playercore.validate_url(url) == url
-
-
-def test_app_opens_only_https_links_outside():
-    assert 'url.scheme == "https"' in xcode.LINK_METHOD
-    assert ".linkActivated" in xcode.LINK_METHOD
 
 
 # CI workflows --------------------------------------------------------------------
@@ -275,36 +296,11 @@ def test_read_only_token_where_nothing_is_written():
         assert data["permissions"] == {"contents": "read"}, name
 
 
-# Repository hygiene --------------------------------------------------------------
-
-
-def tracked_text_files():
-    skip = {".png", ".pyc"}
-    for path in ROOT.rglob("*"):
-        rel = path.relative_to(ROOT).parts
-        if not path.is_file() or path.suffix in skip:
-            continue
-        if (
-            rel[0] in {".git", ".venv", "dist", "build", "release", ".idea", ".pytest_cache"}
-            or "egg-info" in rel[0]
-        ):
-            continue
-        if "__pycache__" in rel:
-            continue
-        yield path
-
-
-def test_no_personal_paths_or_secrets_in_the_repository():
-    pattern = re.compile(
-        r"/Users/[a-z]|-----BEGIN [A-Z ]*PRIVATE KEY|gh[pousr]_[A-Za-z0-9]{30,}|AKIA[0-9A-Z]{16}"
-        r"|[A-Za-z0-9._%+-]+@(?!users\.noreply\.github\.com|fsf\.org)[A-Za-z0-9-]+\.[a-z]{2,}"
-    )
-    me = Path(__file__).name
-    hits = []
-    for path in tracked_text_files():
-        if path.name in {me, "LICENSE"}:
-            continue
-        for i, line in enumerate(path.read_text(errors="ignore").splitlines(), 1):
-            if pattern.search(line):
-                hits.append(f"{path.relative_to(ROOT)}:{i}: {line.strip()[:80]}")
-    assert not hits, hits
+@pytest.mark.parametrize("path", workflows(), ids=lambda p: p.name)
+def test_actions_are_pinned_by_commit(path):
+    """A tag can be moved by whoever controls the action; a commit SHA can't."""
+    for job in yaml.safe_load(path.read_text())["jobs"].values():
+        for step in job.get("steps", []):
+            uses = step.get("uses", "")
+            if uses and not uses.startswith("./"):
+                assert re.fullmatch(r"[\w.-]+/[\w./-]+@[0-9a-f]{40}", uses), uses

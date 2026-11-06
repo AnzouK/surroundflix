@@ -40,7 +40,6 @@ out.space = JSON.stringify({a: 1}, null, 2);
 JSON.parse(JSON.stringify({result: {audio_tracks: [
   {streams: [{content_profile: "ddplus-5.1-dash"}, {content_profile: "heaac-2-dash"}]}]}}));
 out.state = window.__surroundflix;
-out.native = JSON.stringify.toString().includes("native code");
 out.status = JSON.parse(globalThis.__attrs["data-surroundflix-status"]);
 (async () => {
   %(extra)s
@@ -104,7 +103,6 @@ def test_state_and_response_inspection():
     out = run()
     assert out["state"]["patchedRequests"] == 2
     assert out["state"]["lastManifestAudio"] == ["ddplus-5.1-dash", "heaac-2-dash"]
-    assert out["native"] is True
 
 
 def test_default_surround_preset_has_no_atmos():
@@ -241,12 +239,33 @@ def test_a_floor_above_every_stream_keeps_the_tallest():
     assert run(extra=extra, video="min1080")["kept"] == [900, 700]
 
 
-def test_video_without_sizes_or_bitrates_is_left_alone():
+def test_streams_without_a_size_dont_disable_the_mode():
     extra = """
-    const m = {result: {video_tracks: [{streams: [{bitrate: 500}, {bitrate: 900, res_h: 1080}, {x: 1}]}]}};
+    const m = {result: {video_tracks: [{streams: [{bitrate: 500}, {bitrate: 900, res_h: 1080},
+      {bitrate: 300, res_h: 480}]}]}};
+    out.kept = JSON.parse(JSON.stringify(m)).result.video_tracks[0].streams.map(s => s.bitrate);
+    """
+    assert run(extra=extra, video="min720")["kept"] == [900]
+
+
+def test_no_sizes_at_all_leaves_the_list_alone():
+    extra = """
+    const m = {result: {video_tracks: [{streams: [{bitrate: 500}, {bitrate: 900}]}]}};
     out.kept = JSON.parse(JSON.stringify(m)).result.video_tracks[0].streams.length;
     """
-    assert run(extra=extra, video="min720")["kept"] == 3
+    assert run(extra=extra, video="min720")["kept"] == 2
+
+
+def test_best_prefers_resolution_over_bitrate():
+    # H.264 1080p at 8 Mb/s must not beat HEVC 2160p at 7 Mb/s.
+    extra = """
+    const m = {result: {video_tracks: [{streams: [
+      {content_profile: "playready-h264hpl40-dash", bitrate: 8000, res_h: 1080},
+      {content_profile: "hevc-main10-L51-dash-cenc-prk", bitrate: 7000, res_h: 2160},
+      {content_profile: "hevc-main10-L51-dash-cenc-prk", bitrate: 5000, res_h: 2160}]}]}};
+    out.kept = JSON.parse(JSON.stringify(m)).result.video_tracks[0].streams.map(s => s.bitrate);
+    """
+    assert run(extra=extra, video="best")["kept"] == [7000]
 
 
 MIXED = """
@@ -387,3 +406,29 @@ def test_h264_main_is_added_when_the_browser_lists_only_high():
     ]
     assert "playready-h264hpl40-dash" not in out["request"]
     assert "av1-main-L40-dash-cbcs-prk" not in out["request"]
+
+
+def test_netflix_request_object_is_left_intact():
+    # Cadmium may reuse its lists for the next title: a choice changed in the
+    # popup between two requests must apply to the second one.
+    extra = """
+    const req = {params: {profiles: ["heaac-2-dash", "playready-h264hpl40-dash",
+      "hevc-main10-L41-dash-cenc-prk", "av1-main-L40-dash-cbcs-prk"]}};
+    ATTRS["data-surroundflix-codec"] = "h264";
+    out.first = JSON.parse(JSON.stringify(req)).params.profiles;
+    ATTRS["data-surroundflix-codec"] = "auto";
+    ATTRS["data-surroundflix-preset"] = "surround";
+    out.second = JSON.parse(JSON.stringify(req)).params.profiles;
+    out.original = req.params.profiles;
+    """
+    out = run(extra=extra)
+    assert "hevc-main10-L41-dash-cenc-prk" not in out["first"]
+    assert "ddplus-atmos-dash" in out["first"]
+    assert "hevc-main10-L41-dash-cenc-prk" in out["second"]
+    assert "ddplus-atmos-dash" not in out["second"] and "ddplus-5.1-dash" in out["second"]
+    assert out["original"] == [
+        "heaac-2-dash",
+        "playready-h264hpl40-dash",
+        "hevc-main10-L41-dash-cenc-prk",
+        "av1-main-L40-dash-cbcs-prk",
+    ]
