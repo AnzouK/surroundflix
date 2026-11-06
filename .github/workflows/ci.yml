@@ -1,7 +1,8 @@
 # =====================================================================
 # Surroundflix CI
 # =====================================================================
-# Runs on every push to main and every pull request.
+# Runs on every push to main and every pull request, and before every
+# release (release.yml calls it).
 #
 #   javascript  builds dist/, node --check on every built script, ESLint
 #               (eslint.config.mjs: bug, hygiene and security rules, all
@@ -19,6 +20,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
 
 concurrency:
   group: ci-${{ github.ref }}

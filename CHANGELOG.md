@@ -4,9 +4,10 @@ All notable changes to Surroundflix are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-`python3 scripts/release.py` dates a section on the day you release it and
-tags it; the release workflow publishes that section as the release notes.
-New entries go under [Unreleased].
+`python3 scripts/release.py prepare` dates a section on the day you release
+it, and `python3 scripts/release.py tag` tags main once that is merged; the
+release workflow publishes the section as the release notes. New entries go
+under [Unreleased].
 
 ## [Unreleased]
 

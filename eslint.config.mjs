@@ -1,4 +1,4 @@
-// ESLint config (flat config, ESLint 9), same rules as PhishLens.
+// ESLint config (flat config, ESLint 9).
 //
 // CI lints the built JavaScript in dist/ (run `surroundflix build` first):
 // the templates are joined there (shared.js + popup.js, shared.js +

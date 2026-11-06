@@ -213,9 +213,16 @@ only asks GitHub for updates when you click the button. Details in
 
 Every push runs security tests (permissions, untrusted page data, network
 destinations, workflow hardening) plus Bandit, pip-audit, gitleaks and
-CodeQL. Releases ship with `SHA256SUMS.txt`; check a download with
-`shasum -a 256 -c SHA256SUMS.txt`. To report a vulnerability, see
-[SECURITY.md](SECURITY.md).
+CodeQL. Releases are built by GitHub Actions from a tagged commit that
+passed CI, and ship with `SHA256SUMS.txt` and build provenance
+attestations. Check a download with:
+
+```bash
+shasum -a 256 -c SHA256SUMS.txt
+gh attestation verify Surroundflix.dmg --repo AnzouK/surroundflix
+```
+
+To report a vulnerability, see [SECURITY.md](SECURITY.md).
 
 ## Building from source
 

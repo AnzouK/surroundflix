@@ -49,23 +49,25 @@ a language, copy the `en` block, translate it, add its name under
 
 Versions follow [Semantic Versioning](https://semver.org/): `fix` commits
 make a patch release, `feat` commits a minor one, breaking changes a major
-one. To release, on an up-to-date `main`:
+one. A release takes two steps, so the tag lands on `main` after CI:
 
 ```bash
-python3 scripts/release.py 1.1.0    # [Unreleased] becomes [1.1.0]
-python3 scripts/release.py          # or: release the version already in the code
+python3 scripts/release.py prepare 1.1.0   # on an up-to-date main
+# open the release/v1.1.0 pull request, merge it once CI is green, then:
+git checkout main && git pull && python3 scripts/release.py tag
 ```
 
-The script dates the CHANGELOG section with your computer's date, sets the
-version in `pyproject.toml` and `src/surroundflix/__init__.py`, commits on a
-`release/v…` branch, tags it and pushes both. `--dry-run` shows the changes
-without touching anything.
+`prepare` turns `[Unreleased]` into the new version's section, dated with
+your computer's date, sets the version in `pyproject.toml` and
+`src/surroundflix/__init__.py`, commits on a `release/v…` branch and pushes
+it. `tag` checks that the section of the code's version is dated, then tags
+`main` and pushes the tag. Both accept `--dry-run`.
 
-The tag starts `.github/workflows/release.yml`: it builds the .dmg on a
-macOS runner, the userscript and the Chrome zip, writes `SHA256SUMS.txt`,
-and publishes the release with the CHANGELOG section and the install guide
-(`.github/release-install.md`) as notes. Then merge the release branch so
-`main` has the dated CHANGELOG.
+The tag starts `.github/workflows/release.yml`: it runs the whole CI on the
+tagged commit, builds the .dmg on a macOS runner, the userscript and the
+Chrome zip, writes `SHA256SUMS.txt`, and publishes the release with the
+CHANGELOG section and the install guide (`.github/release-install.md`) as
+notes.
 
 ## Security
 
