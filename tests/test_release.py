@@ -56,12 +56,25 @@ def test_version_is_set_in_both_files():
     assert 'version = "0.2.0"' in pyproject and '__version__ = "0.2.0"' in init
 
 
-def test_the_real_changelog_can_be_released():
-    text = (ROOT / "CHANGELOG.md").read_text()
+def released_changelog():
+    """The repository's CHANGELOG with the current version dated: as it is
+    once released, or as release.py would date it before the release."""
     import surroundflix
 
-    out = release.release_changelog(text, surroundflix.__version__, DAY)
-    assert f"## [{surroundflix.__version__}] - 2026-11-06" in out
+    text = (ROOT / "CHANGELOG.md").read_text()
+    version = surroundflix.__version__
+    if re.search(rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", text, re.M):
+        return text
+    return release.release_changelog(text, version, DAY)
+
+
+def test_the_real_changelog_can_be_released():
+    import surroundflix
+
+    text = released_changelog()
+    assert re.search(
+        rf"^## \[{re.escape(surroundflix.__version__)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", text, re.M
+    )
 
 
 def test_release_notes_are_the_section_plus_the_install_guide(tmp_path):
@@ -77,9 +90,7 @@ def test_release_notes_are_the_section_plus_the_install_guide(tmp_path):
     awk = re.search(r"awk -v v=\"\$VERSION\" '(.*?)' CHANGELOG.md", workflow, re.S).group(1)
     version = surroundflix.__version__
     changelog = tmp_path / "CHANGELOG.md"
-    changelog.write_text(
-        release.release_changelog((ROOT / "CHANGELOG.md").read_text(), version, DAY)
-    )
+    changelog.write_text(released_changelog())
     notes = subprocess.run(
         ["awk", "-v", f"v={version}", awk, str(changelog)],
         capture_output=True,
