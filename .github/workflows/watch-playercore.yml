@@ -42,7 +42,11 @@ jobs:
           args=(--json)
           if [ -n "$PLAYERCORE_URL" ]; then args+=(--url "$PLAYERCORE_URL"); fi
           surroundflix check "${args[@]}" > report.json
-          echo "status=$?" >> "$GITHUB_OUTPUT"
+          status=$?
+          # Only a report listing what's missing counts as a failure; a crash
+          # with no report means nothing was checked.
+          if [ "$status" = 1 ] && ! grep -q '"missing"' report.json; then status=2; fi
+          echo "status=$status" >> "$GITHUB_OUTPUT"
           cat report.json
 
       - name: Report a missing profile
