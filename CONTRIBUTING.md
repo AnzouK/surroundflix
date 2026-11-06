@@ -26,7 +26,9 @@ for `surroundflix dmg` (see [Building from source](README.md#building-from-sourc
 3. Add an entry under `[Unreleased]` in [CHANGELOG.md](CHANGELOG.md) for
    anything a user would notice.
 4. Open a pull request and fill in its checklist. `main` only accepts
-   pull requests with green CI; merge with **Rebase and merge**.
+   pull requests with green CI; merge with **Squash and merge**, so each
+   pull request becomes one commit on `main` named after its title (give
+   the pull request a Conventional Commits title).
 
 Before pushing:
 
