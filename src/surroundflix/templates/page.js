@@ -51,7 +51,7 @@
     h264high: /h264hpl|avchigh/,
     h264: /h264|avc/,
     hevc: /hevc|dvhe|hev1|dv5/,
-    av1: /^av1|av01/,
+    av1: /^av1/,
     vp9: /^vp9/
   };
 

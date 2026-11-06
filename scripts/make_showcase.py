@@ -132,7 +132,7 @@ def icon(size: int) -> str:
     ).strip()
 
 
-def app_markup(strings: dict) -> str:
+def app_markup(strings: dict, version: str) -> str:
     html = (TEMPLATES / "app" / "Main.html").read_text()
     main = re.search(r'<main class="window">.*?</main>', html, re.S).group(0)
     # Shown as it looks once set up: extension on, setup steps replaced by "all set".
@@ -141,7 +141,7 @@ def app_markup(strings: dict) -> str:
     main = main.replace('data-i18n="status_checking"', 'data-i18n="status_on"')
     main = fill(main, strings)
     main = main.replace('class="status" id="status"', 'class="status on" id="status"')
-    main = main.replace('id="version"></div>', f'id="version">{__version__}</div>')
+    main = main.replace('id="version"></div>', f'id="version">{version}</div>')
     main = main.replace('href="#"', f'href="https://github.com/{REPO}"')
     main = main.replace(
         '<select id="language"></select>',
@@ -179,7 +179,7 @@ def popup_markup(strings: dict) -> str:
     return f'<div class="sf-popup">{xhtml(main)}</div>'
 
 
-def compose(height: int) -> str:
+def compose(height: int, version: str = __version__) -> str:
     strings = load_i18n()["strings"]["en"]
     css = "\n".join(
         [
@@ -194,7 +194,7 @@ def compose(height: int) -> str:
         '<div class="sf-frame">'
         '<figure><div class="sf-window"><div class="sf-bar"><span class="sf-lights">'
         "<i></i><i></i><i></i></span>Surroundflix</div>"
-        f"{app_markup(strings)}</div><figcaption>App window</figcaption></figure>"
+        f"{app_markup(strings, version)}</div><figcaption>App window</figcaption></figure>"
         f'<figure><div class="sf-pop"><i class="sf-arrow"></i>{popup_markup(strings)}</div>'
         "<figcaption>Toolbar button in Safari</figcaption></figure>"
         "</div>"

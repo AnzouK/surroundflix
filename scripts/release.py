@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 REPO = "AnzouK/surroundflix"
 CHANGELOG = ROOT / "CHANGELOG.md"
 INIT = ROOT / "src" / "surroundflix" / "__init__.py"
+SHOWCASE = ROOT / "design" / "showcase.svg"
 VERSION = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -109,6 +110,15 @@ def code_version() -> str:
     return re.search(r'^__version__ = "([^"]+)"', INIT.read_text(), re.M).group(1)
 
 
+def redraw_showcase(version: str) -> None:
+    """The README picture shows the version: redraw it at the same height."""
+    import make_showcase
+
+    svg = SHOWCASE.read_text()
+    height = int(re.search(r'height="(\d+)"', svg).group(1))
+    SHOWCASE.write_text(make_showcase.compose(height, version), "utf-8")
+
+
 def prepare(version: str | None, dry_run: bool) -> int:
     version = version or code_version()
     tag, branch = f"v{version}", f"release/v{version}"
@@ -126,7 +136,8 @@ def prepare(version: str | None, dry_run: bool) -> int:
     git("checkout", "-b", branch)
     CHANGELOG.write_text(changelog, "utf-8")
     INIT.write_text(init, "utf-8")
-    git("add", str(CHANGELOG), str(INIT))
+    redraw_showcase(version)
+    git("add", str(CHANGELOG), str(INIT), str(SHOWCASE))
     git("commit", "--quiet", "-m", f"chore(release): {tag}")
     git("push", "--quiet", "-u", "origin", branch, capture=False)
     print(f"Pushed {branch}. Open its pull request, merge it once CI is green:")

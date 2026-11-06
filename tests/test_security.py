@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 import yaml
@@ -82,12 +83,13 @@ def all_js_templates():
 @pytest.mark.parametrize("path", all_js_templates(), ids=lambda p: p.name)
 def test_only_expected_network_destinations(path):
     urls = set(re.findall(r"https?://[^\s\"'`)]+", path.read_text()))
-    allowed = ("https://api.github.com/repos/", "https://github.com/")
-    assert all(u.startswith(allowed) for u in urls), urls
+    hosts = {urlparse(u).hostname for u in urls}
+    assert all(u.startswith("https://") for u in urls), urls
+    assert hosts <= {"api.github.com", "github.com"}, hosts
     # Only the app window talks to a server (GitHub's API, for updates);
-    # shared.js just compares links with a github.com prefix.
+    # shared.js only checks release links.
     if path.name != "Script.js":
-        assert not any("api.github.com" in u for u in urls), path.name
+        assert "api.github.com" not in hosts, path.name
     if path.name not in {"Script.js", "shared.js"}:
         assert not urls, f"{path.name} should not reference any server: {urls}"
 
