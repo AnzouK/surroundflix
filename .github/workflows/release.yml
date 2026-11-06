@@ -1,17 +1,8 @@
-# =====================================================================
-# Surroundflix release
-# =====================================================================
-# On a version tag (v1.0.0...): runs the whole CI on the tagged commit,
-# checks that the tag matches the code's version, builds Surroundflix.dmg
-# on a macOS runner plus the userscript and the Chrome zip, writes
-# SHA256SUMS.txt, and publishes the GitHub release with the version's
-# CHANGELOG section and the install guide (.github/release-install.md) as
-# notes.
-#
-# On public repositories, each file also gets a signed build provenance
-# attestation: `gh attestation verify <file> --repo AnzouK/surroundflix`
-# proves it was built by this workflow from this repository.
-# =====================================================================
+# On a version tag (scripts/release.py tag): runs the CI on the tagged
+# commit, checks it is on main and matches the code's version, builds the
+# .dmg, the userscript and the Chrome zip, and publishes the release with
+# SHA256SUMS.txt, build provenance and the CHANGELOG section as notes.
+
 name: Release
 
 on:
@@ -19,10 +10,9 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  # The full CI (tests, lint, build) must pass on the tagged commit first.
   ci:
     uses: ./.github/workflows/ci.yml
 
@@ -35,10 +25,13 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - name: Tag is on main
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
       - run: pip install -e .
@@ -76,7 +69,7 @@ jobs:
 
       - name: Build provenance
         if: ${{ !github.event.repository.private }}
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8  # v4.2.2
         with:
           subject-path: |
             release/Surroundflix.dmg

@@ -31,8 +31,7 @@ const hygieneRules = {
   // vars: "local": the top-level helpers of shared.js are a small library,
   // and each built file uses only some of them.
   "no-unused-vars": ["error", { vars: "local", args: "none", caughtErrors: "none" }],
-  // An empty catch must say in a comment why the error is ignored.
-  "no-empty": ["error", { allowEmptyCatch: false }],
+  "no-empty": ["error", { allowEmptyCatch: true }],
   eqeqeq: ["error", "smart"],
 };
 

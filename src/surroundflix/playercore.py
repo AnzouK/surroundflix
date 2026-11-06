@@ -1,10 +1,9 @@
-"""Watches Netflix's Cadmium playercore for changes that could break us.
+"""Checks that Netflix's player (Cadmium) still knows the profile names
+Surroundflix asks for.
 
-Surroundflix doesn't patch the playercore, but it relies on two facts
-about it: the player still knows the Dolby and AAC 5.1 profile names, and its
-manifest request still carries a "profiles" list. This module downloads
-the current playercore and checks both, so a scheduled GitHub Action can
-open an issue the day Netflix ships something that matters.
+This only catches one kind of change: Netflix dropping the Dolby or AAC
+5.1 profile names from its player. A change in the request or response
+format, or in the server's answers, goes unnoticed here.
 """
 
 from __future__ import annotations
@@ -52,9 +51,9 @@ class Report:
         return d
 
 
-# Only Netflix's own HTTPS hosts are fetched. Without this, a URL given to
-# `check --url` (or the PLAYERCORE_URL variable in CI) could be file:///...
-# and read a local file, or point the job at any server.
+# Only Netflix's own HTTPS hosts are fetched, redirects included. Without
+# this, a URL given to `check --url` (or the PLAYERCORE_URL variable in CI)
+# could be file:///... and read a local file, or point the job elsewhere.
 ALLOWED_HOSTS = ("netflix.com", "nflxext.com")
 MAX_DOWNLOAD = 20 * 1024 * 1024  # the playercore is a few MB
 
@@ -71,11 +70,24 @@ def validate_url(url: str) -> str:
     return url
 
 
+class _CheckedRedirects(urllib.request.HTTPRedirectHandler):
+    """Applies validate_url() to every redirect, not just the first URL."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        validate_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+_OPENER = urllib.request.build_opener(_CheckedRedirects)
+
+
+def _open(req: urllib.request.Request, timeout: int):
+    return _OPENER.open(req, timeout=timeout)
+
+
 def _get(url: str, timeout: int = 30) -> str:
-    # validate_url() allows only https on Netflix hosts, so file:// and
-    # other schemes never reach urlopen.
     req = urllib.request.Request(validate_url(url), headers={"User-Agent": USER_AGENT})  # noqa: S310
-    with urllib.request.urlopen(req, timeout=timeout) as resp:  # noqa: S310  # nosec B310
+    with _open(req, timeout) as resp:
         data = resp.read(MAX_DOWNLOAD + 1)
     if len(data) > MAX_DOWNLOAD:
         raise ValueError(f"{url} is larger than {MAX_DOWNLOAD} bytes")

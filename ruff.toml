@@ -1,36 +1,19 @@
-# Ruff: lint and format for every Python file of the repository.
-# CI runs `ruff check` and `ruff format --check`.
 line-length = 100
 target-version = "py39"
 
 [lint]
-select = [
-    "E", "W",   # pycodestyle
-    "F",        # pyflakes
-    "B",        # bugbear: likely bugs
-    "UP",       # pyupgrade: modern syntax for the target version
-    "SIM",      # simplifications
-    "I",        # import order
-    "C90",      # complexity
-    "S",        # flake8-bandit: security
-]
-ignore = [
-    "E501",     # long lines: the formatter wraps code, long strings stay
-    "SIM105",   # contextlib.suppress: try/except is clearer here
-    "SIM108",   # ternary operators are not always clearer
-]
+# S = flake8-bandit security rules.
+select = ["E", "W", "F", "B", "UP", "SIM", "I", "C90", "S"]
+ignore = ["E501", "SIM105", "SIM108"]
 
 [lint.mccabe]
 max-complexity = 15
 
 [lint.per-file-ignores]
-# Tests use assert and run local tools (node) by design.
 "tests/*" = ["S101", "S603", "S607"]
-# These run Apple's tools (xcrun, xcodebuild, hdiutil) by name with fixed
-# arguments and no shell; Bandit gets the same exception inline (# nosec).
+# subprocess with fixed arguments and no shell (Apple's tools, git).
 "src/surroundflix/build.py" = ["S603", "S607"]
 "src/surroundflix/package.py" = ["S603", "S607"]
-# Runs git by name with fixed arguments and no shell.
 "scripts/release.py" = ["S603", "S607"]
 
 [lint.isort]

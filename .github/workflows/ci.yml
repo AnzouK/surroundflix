@@ -1,18 +1,6 @@
-# =====================================================================
-# Surroundflix CI
-# =====================================================================
-# Runs on every push to main and every pull request, and before every
-# release (release.yml calls it).
-#
-#   javascript  builds dist/, node --check on every built script, ESLint
-#               (eslint.config.mjs: bug, hygiene and security rules, all
-#               blocking)
-#   python      compile, ruff (lint + format, ruff.toml with the bandit
-#               rules) and pytest with coverage, 80% minimum, on the
-#               oldest and newest supported Python
-#
-# Security scans (Bandit, pip-audit, gitleaks, CodeQL) are in security.yml.
-# =====================================================================
+# Lint, tests and build on every push to main and every pull request;
+# release.yml also calls it before publishing.
+
 name: CI
 
 on:
@@ -36,13 +24,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: "3.12"
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: "22"
       - name: Build dist/
@@ -66,14 +54,14 @@ jobs:
       matrix:
         python: ["3.9", "3.12"]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: ${{ matrix.python }}
       # The tests run the generated JavaScript under Node.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: "22"
       - name: Install
@@ -93,7 +81,7 @@ jobs:
       - name: Build
         if: matrix.python == '3.12'
         run: surroundflix build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         if: matrix.python == '3.12'
         with:
           name: surroundflix-dist

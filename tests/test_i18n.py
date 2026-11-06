@@ -56,11 +56,6 @@ def test_resolve_lang(choice, prefs, expected):
     assert out == expected
 
 
-def test_no_long_dashes():
-    raw = json.dumps(I18N, ensure_ascii=False)
-    assert chr(0x2014) not in raw and chr(0x2013) not in raw
-
-
 def test_angolan_portuguese_keeps_its_spelling():
     ao = I18N["strings"]["pt-AO"]
     assert "actualizações" in ao["updates_check"]

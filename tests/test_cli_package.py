@@ -69,7 +69,7 @@ def test_check_downloads_with_the_validated_url(monkeypatch, capsys):
         seen["url"] = req.full_url
         return Resp()
 
-    monkeypatch.setattr(playercore.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(playercore, "_open", fake_urlopen)
     url = "https://assets.nflxext.com/player/html/ffe/cadmium-playercore-6.0064.915.911.js"
     assert main(["check", "--url", url, "--json"]) == 0
     assert seen["url"] == url
@@ -87,7 +87,7 @@ def test_download_size_is_capped(monkeypatch):
         def read(self, n):
             return b"x" * n
 
-    monkeypatch.setattr(playercore.urllib.request, "urlopen", lambda req, timeout: Big())
+    monkeypatch.setattr(playercore, "_open", lambda req, timeout: Big())
     with pytest.raises(ValueError, match="larger"):
         playercore.load(url="https://assets.nflxext.com/huge.js")
 
@@ -188,3 +188,15 @@ def test_command_line_tools_only_gives_the_fix(tmp_path, fake_macos, monkeypatch
     err = capsys.readouterr().err
     assert "xcode-select -s /Applications/Xcode.app/Contents/Developer" in err
     assert "Traceback" not in err
+
+
+def test_check_network_error_is_inconclusive(monkeypatch, capsys):
+    import urllib.error
+
+    def refused(req, timeout):
+        raise urllib.error.HTTPError(req.full_url, 403, "Forbidden", {}, None)
+
+    monkeypatch.setattr(playercore, "_open", refused)
+    url = "https://assets.nflxext.com/x/cadmium-playercore-6.0.js"
+    # 2, not 1: nothing was checked, so no "profile missing" issue.
+    assert main(["check", "--url", url]) == 2

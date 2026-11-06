@@ -53,9 +53,14 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     if (stored && typeof stored.videoQuality === "string") videoQuality.value = stored.videoQuality;
     if (!videoQuality.value) videoQuality.value = DEFAULT_VIDEO_QUALITY; // unknown stored value
     if (stored && typeof stored.videoCodec === "string") videoCodec.value = stored.videoCodec;
-    if (!videoCodec.value) videoCodec.value = DEFAULT_VIDEO_CODEC;
+    if (!videoCodec.value) {
+      // The stored codec isn't offered any more (not decodable here): reset
+      // it, or page.js would keep asking for it while the menu shows Automatic.
+      videoCodec.value = DEFAULT_VIDEO_CODEC;
+      api.storage.local.set({ videoCodec: DEFAULT_VIDEO_CODEC });
+    }
     describeAll();
-  }, function () { /* storage unavailable: keep the defaults shown above */ });
+  }, function () {});
 
   for (var i = 0; i < radios.length; i++) {
     radios[i].addEventListener("change", function (event) {
@@ -115,9 +120,9 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     var quality = formatVideo(video, lang);
     videoOut.hidden = !quality;
     if (quality) sentence(videoOut, "tab_video", "quality", quality);
-    var hasRange = !!quality && typeof video.minHeight === "number" && typeof video.maxHeight === "number";
+    var hasRange = !!quality && plausible(video.minHeight, 10000) && plausible(video.maxHeight, 10000);
     rangeOut.hidden = !hasRange;
-    if (hasRange) rangeOut.textContent = t(lang, "tab_video_range", { min: video.minHeight + "p", max: video.maxHeight + "p" });
+    if (hasRange) rangeOut.textContent = t(lang, "tab_video_range", { min: Math.round(video.minHeight) + "p", max: Math.round(video.maxHeight) + "p" });
   }
 
   function showStatus(reply) {
@@ -178,9 +183,7 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
   var dolby = !CHECK_DOLBY;
   if (CHECK_DOLBY) try {
     dolby = MediaSource.isTypeSupported('audio/mp4; codecs="ec-3"');
-  } catch (err) {
-    // MediaSource missing: treat as no Dolby support.
-  }
+  } catch (err) {}
   if (!dolby) {
     document.getElementById("presets").disabled = true;
     document.getElementById("no-dolby").hidden = false;

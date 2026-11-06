@@ -40,11 +40,8 @@ def test_internal_links_resolve(doc):
     assert not broken, broken
 
 
-def test_one_version_everywhere():
-    pyproject = (ROOT / "pyproject.toml").read_text()
-    version = re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
-    assert version == surroundflix.__version__
-    assert f"## [{version}]" in (ROOT / "CHANGELOG.md").read_text()
+def test_the_version_has_a_changelog_section():
+    assert f"## [{surroundflix.__version__}]" in (ROOT / "CHANGELOG.md").read_text()
 
 
 def test_showcase_svg_is_safe_and_up_to_date():

@@ -9,8 +9,9 @@
  * chosen, keep only that codec's video profiles), and JSON.parse /
  * Response.json to read Netflix's answer: the streams it sent, which the
  * video quality choice trims, and the title features behind the badges.
- * Netflix's own code is never modified, so a new Cadmium version doesn't
- * break this unless Netflix changes the request format itself.
+ * Netflix's code isn't modified, but this depends on the request's
+ * "profiles" list, the shape of the answer (audio_tracks, streams,
+ * content_profile...) and, for the badges, a few CSS classes of its pages.
  *
  * DRM is untouched: everything still plays through Netflix's normal,
  * licensed playback path.
@@ -285,23 +286,25 @@
     var rule = VIDEO_MODES[mode];
     function rate(s) { return number(firstKey(s, BITRATE_KEYS)); }
     function height(s) { return number(firstKey(s, HEIGHT_KEYS)); }
+    // Streams without a size can't be judged, so the rules use the others.
+    var sized = streams.filter(function (s) { return height(s) !== null; });
+    var heights = sized.map(height);
+    var tallest = Math.max.apply(null, heights);
     if (rule.best) {
-      var top = Math.max.apply(null, streams.map(function (s) { return rate(s) || 0; }));
-      return top > 0 ? streams.filter(function (s) { return rate(s) === top; }) : streams;
+      // Highest resolution first, then the highest bitrate at it.
+      var pool = sized.length ? sized.filter(function (s) { return height(s) === tallest; }) : streams;
+      var top = Math.max.apply(null, pool.map(function (s) { return rate(s) || 0; }));
+      return top > 0 ? pool.filter(function (s) { return rate(s) === top; }) : pool;
     }
-    var heights = streams.map(height).filter(function (h) { return h !== null; });
-    if (heights.length !== streams.length) return streams; // unknown sizes: leave alone
+    if (!sized.length) return streams;
     if (rule.minHeight) {
-      var high = streams.filter(function (s) { return height(s) >= rule.minHeight; });
-      if (high.length) return high;
-      var tallest = Math.max.apply(null, heights);
-      return streams.filter(function (s) { return height(s) === tallest; });
+      var high = sized.filter(function (s) { return height(s) >= rule.minHeight; });
+      return high.length ? high : sized.filter(function (s) { return height(s) === tallest; });
     }
     if (rule.maxHeight) {
-      var low = streams.filter(function (s) { return height(s) <= rule.maxHeight; });
-      if (low.length) return low;
+      var low = sized.filter(function (s) { return height(s) <= rule.maxHeight; });
       var shortest = Math.min.apply(null, heights);
-      return streams.filter(function (s) { return height(s) === shortest; });
+      return low.length ? low : sized.filter(function (s) { return height(s) === shortest; });
     }
     return streams;
   }
@@ -432,7 +435,7 @@
     tracks.forEach(function (track) {
       var streams = firstKey(track, STREAM_KEYS);
       if (!Array.isArray(streams) || streams.length < 2) return;
-      var top = {};
+      var top = Object.create(null);
       streams.forEach(function (s) {
         var key = String(firstKey(s, PROFILE_KEYS));
         var r = number(firstKey(s, BITRATE_KEYS));
@@ -469,12 +472,13 @@
   var LINE_ATTR = "data-surroundflix-badges";
   var METADATA_LINE = ".videoMetadata--line";
   var HD_BADGE = '[data-uia="player-feature-badge-hd"]';
+  var MODAL = [".detail-modal", ".previewModal--container", '[role="dialog"]'];
   // Netflix's own items in a metadata line, in the order they appear. Ours
   // go after the last one present.
   var NATIVE_ITEMS = [".year", ".duration", ".maturity-rating", ".player-feature-badge",
     ".svg-icon-dolby-vision", ".spatial-audio"];
   var MAX_TITLES = 5000;
-  var featuresById = {};
+  var featuresById = Object.create(null);
   var titleCount = 0;
 
   // Finds every object with a videoId and a playbackBadges list.
@@ -537,14 +541,25 @@
       node = node.parentElement;
       // Past this point we'd be reading another title's card.
       if (node.querySelectorAll(METADATA_LINE).length > 1) break;
-      var tracked = node.querySelectorAll("[data-ui-tracking-context]");
+      var tracked = [node].concat(Array.prototype.slice.call(
+        node.querySelectorAll("[data-ui-tracking-context]")));
       for (var i = 0; i < tracked.length; i++) {
         var id = trackedVideoId(tracked[i].getAttribute("data-ui-tracking-context"));
         if (id) return id;
       }
     }
+    // The open modal's title is in the URL (?jbv=), but only lines inside
+    // that modal may use it.
+    if (!insideModal(line)) return null;
     var m = /[?&]jbv=(\d+)/.exec((window.location && window.location.search) || "");
     return m ? m[1] : null;
+  }
+
+  function insideModal(el) {
+    for (var node = el.parentElement; node; node = node.parentElement) {
+      if (matchesAny(node, MODAL)) return true;
+    }
+    return false;
   }
 
   function matchesAny(el, selectors) {
@@ -558,7 +573,9 @@
     var last = null;
     for (var i = 0; i < line.children.length; i++) {
       var child = line.children[i];
-      if (!child.hasAttribute(BADGE_ATTR) && matchesAny(child, NATIVE_ITEMS)) last = child;
+      if (child.hasAttribute(BADGE_ATTR)) continue;
+      // Netflix sometimes wraps an icon in a container of its own.
+      if (matchesAny(child, NATIVE_ITEMS) || child.querySelector(NATIVE_ITEMS.join(","))) last = child;
     }
     return last;
   }
@@ -624,11 +641,18 @@
     }
   }
 
+  // Redraws the badges when the page changes, and when the popup's choices
+  // change (the content script rewrites them on <html>).
   function watchPage() {
     if (typeof window.MutationObserver !== "function" || !document.documentElement ||
         !document.querySelectorAll) return;
-    new window.MutationObserver(drawBadgesSoon)
-      .observe(document.documentElement, { childList: true, subtree: true });
+    var root = document.documentElement;
+    new window.MutationObserver(drawBadgesSoon).observe(root, { childList: true, subtree: true });
+    new window.MutationObserver(function () {
+      state.preset = currentPreset();
+      publishStatus();
+      drawBadgesSoon();
+    }).observe(root, { attributes: true, attributeFilter: [PRESET_ATTR, VIDEO_ATTR, CODEC_ATTR] });
   }
 
   function mentionsTracks(text) {
@@ -639,11 +663,19 @@
   var nativeStringify = JSON.stringify;
   var nativeParse = JSON.parse;
 
+  // The request is edited on a copy: Netflix may reuse its own profile
+  // lists for the next title, which must start from the original lists
+  // when the popup's choices have changed in between.
   function stringify(value, replacer, space) {
+    var out = value;
     try {
       if (looksLikeManifestRequest(value)) {
+        var copy = nativeParse.call(JSON, nativeStringify.call(JSON, value));
         var wanted = wantedProfiles();
-        var added = walk(value, wanted, 0);
+        var added = walk(copy, wanted, 0);
+        var codec = codecMode();
+        var removed = codec === "auto" ? 0 : keepCodecProfiles(copy, codec, 0);
+        if (added > 0 || removed > 0) out = copy;
         if (added > 0) {
           state.requested = wanted.slice();
           state.patchedRequests++;
@@ -651,16 +683,13 @@
           publishStatus();
           log("manifest request patched, added", added, "profile(s)", wanted);
         }
-        var codec = codecMode();
-        if (codec !== "auto") {
-          var removed = keepCodecProfiles(value, codec, 0);
-          if (removed > 0) log("video profiles limited to", codec, "-", removed, "removed");
-        }
+        if (removed > 0) log("video profiles limited to", codec, "-", removed, "removed");
       }
     } catch (err) {
+      out = value;
       log("patch skipped:", err);
     }
-    return nativeStringify.call(this, value, replacer, space);
+    return nativeStringify.call(this, out, replacer, space);
   }
 
   function parse(text, reviver) {
@@ -695,12 +724,7 @@
         return data;
       });
     };
-    window.Response.prototype.json.toString = function () { return nativeResponseJson.toString(); };
   }
-
-  // Keep the wrappers looking like the originals to other page code.
-  stringify.toString = function () { return nativeStringify.toString(); };
-  parse.toString = function () { return nativeParse.toString(); };
 
   JSON.stringify = stringify;
   JSON.parse = parse;

@@ -18,6 +18,7 @@
 <a href="#features">Features</a> &nbsp;·&nbsp;
 <a href="#install">Install</a> &nbsp;·&nbsp;
 <a href="#check-that-it-works">Check it works</a> &nbsp;·&nbsp;
+<a href="#known-issues">Known issues</a> &nbsp;·&nbsp;
 <a href="#how-it-works">How it works</a> &nbsp;·&nbsp;
 <a href="#building-from-source">Build</a> &nbsp;·&nbsp;
 <a href="#credits">Credits</a>
@@ -73,7 +74,7 @@ the audio choice is greyed out.
 | --- | --- |
 | Automatic (default) | Netflix picks, as without Surroundflix |
 | At least 720p / 1080p / 4K | Netflix still adapts to your connection, but never below that resolution |
-| Always the best | Only the highest bitrate, for video and for each audio format |
+| Always the best | The highest resolution, then the highest bitrate at it; for audio, the highest bitrate of each format |
 | Data saver (720p max) | Never above 720p, for hotspots and capped plans |
 
 These modes remove streams from the list Netflix's player picks from; the
@@ -184,6 +185,27 @@ downmix. It's mostly useful with real 5.1 speakers.
 If Atmos titles ever fail to play, choose **5.1 only** in the toolbar
 button (userscript: build it with `--preset surround`).
 
+## Tested on
+
+- macOS 26 with Safari 27.2 (app and userscript) and Chrome 156, Netflix
+  Premium plan.
+- The Witcher: Sirens of the Deep (Atmos, Dolby Vision): Dolby Atmos in
+  Safari, AAC 5.1 in Chrome.
+- The Blacklist (5.1, 4K): 2160p HEVC in Safari with "At least 4K";
+  1080p H.264 Main at about 4.3 Mb/s in Chrome.
+
+## Known issues
+
+- The app needs Safari's "Allow unsigned extensions", which Safari turns
+  off at every quit. The userscript doesn't, but has no toolbar button.
+- Recent titles rarely have H.264 Main: Netflix then sends its usual codec.
+  A title that doesn't exist in the chosen codec may not start; switch back
+  to Automatic.
+- Chrome gets Widevine's software DRM: 1080p at most, sometimes lower top
+  bitrates than Safari on the same title, and no Spatial Audio on AirPods.
+- Badges show what the title has and the browser supports, not what your
+  plan or screen allows: `Ultra HD 4K` also appears on a Standard plan.
+
 ## How it works
 
 Netflix's web player (Cadmium) sends a list of the audio and video
@@ -194,16 +216,17 @@ Surroundflix wraps `JSON.stringify` in the page and appends
 `ddplus-5.1-dash`, `ddplus-5.1hq-dash` and `ddplus-atmos-dash` to that list
 just before the request goes out.
 
-Earlier attempts (see [Credits](#credits)) shipped a hand-edited copy of
-Netflix's player, which broke each time Netflix released a new version.
-Surroundflix never modifies or redistributes Netflix code, so it only
-breaks if Netflix changes the request format itself.
-
 The video quality and codec choices work the same way: video formats are
 removed from that list, or streams from Netflix's answer, before the
-player sees them. It doesn't touch DRM or accounts. The extension only
-runs on `www.netflix.com` and asks for a single permission, `storage`, to
-remember the choices made in its toolbar button.
+player sees them. The badges come from the `playbackBadges` field Netflix
+already sends to its pages. DRM and accounts are untouched.
+
+Earlier attempts (see [Credits](#credits)) shipped a hand-edited copy of
+Netflix's player, which broke with each new version. Surroundflix doesn't
+modify Netflix's code, but it still depends on things Netflix can change
+without notice: the request's `profiles` list, the shape of the answer
+(`audio_tracks`, `video_tracks`, `streams`, `content_profile`), and for
+the badges, a few CSS classes of its pages.
 
 ## Privacy and security
 
@@ -211,9 +234,7 @@ Surroundflix collects nothing and the extension contacts no server; the app
 only asks GitHub for updates when you click the button. Details in
 [PRIVACY.md](PRIVACY.md).
 
-Every push runs security tests (permissions, untrusted page data, network
-destinations, workflow hardening) plus Bandit, pip-audit, gitleaks and
-CodeQL. Releases are built by GitHub Actions from a tagged commit that
+Releases are built by GitHub Actions from a tagged commit on `main` that
 passed CI, and ship with `SHA256SUMS.txt` and build provenance
 attestations. Check a download with:
 
@@ -263,12 +284,15 @@ Branches, commit messages, translations and releases are described in
 ## Automatic watch
 
 `.github/workflows/watch-playercore.yml` runs once a day. It downloads
-Netflix's current player, checks that the Dolby and AAC 5.1 profile names and the
-`profiles` request field are still there, records the player version in
-`.github/playercore-state.json`, and opens an issue if something is missing.
+Netflix's current player and checks that the Dolby and AAC 5.1 profile
+names are still in it; if one is gone, it opens an issue (or comments on
+the open one). That's all it can see: a change in the request or response
+format, in Netflix's pages (badges), or in what the servers send back goes
+unnoticed until someone reports it.
 
-Netflix may only expose the player URL to signed-in pages. If the job can't
-find it, copy the `cadmium-playercore-*.js` URL from Safari's Network tab
+Netflix often refuses CI runners, and may only expose the player URL to
+signed-in pages. If the job can't fetch it, it fails without opening an
+issue; copy the `cadmium-playercore-*.js` URL from Safari's Network tab
 and save it as a repository variable named `PLAYERCORE_URL`. The same check
 runs locally:
 

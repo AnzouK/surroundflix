@@ -50,7 +50,8 @@ LINK_METHOD = f"""
     }}
 """
 
-KEEP_OPEN_MARKER = "// surroundflix: keep the app open after opening Safari's settings"
+# A block comment, so a one-line closure like `{ terminate(nil) }` keeps its brace.
+KEEP_OPEN_MARKER = "/* surroundflix: keep the app open after opening Safari's settings */"
 WINDOW_SIZE = (600, 720)
 
 DID_FINISH = re.compile(

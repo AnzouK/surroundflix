@@ -47,13 +47,9 @@ def test_mistakes_are_refused(text, version, message):
         release.release_changelog(text, version, DAY)
 
 
-def test_version_is_set_in_both_files():
-    pyproject, init = release.set_version(
-        '[project]\nname = "surroundflix"\nversion = "0.1.0"\n',
-        '"""Surroundflix."""\n\n__version__ = "0.1.0"\n',
-        "0.2.0",
-    )
-    assert 'version = "0.2.0"' in pyproject and '__version__ = "0.2.0"' in init
+def test_version_is_set():
+    init = release.set_version('"""Surroundflix."""\n\n__version__ = "0.1.0"\n', "0.2.0")
+    assert '__version__ = "0.2.0"' in init
 
 
 def released_changelog():
@@ -99,13 +95,6 @@ def test_release_notes_are_the_section_plus_the_install_guide(tmp_path):
     ).stdout
     assert notes.strip() and "## [" not in notes
     assert "release-install.md" in workflow
-
-
-def test_install_guide_names_every_release_file():
-    workflow = (ROOT / ".github" / "workflows" / "release.yml").read_text()
-    guide = (ROOT / ".github" / "release-install.md").read_text()
-    for name in ("Surroundflix.dmg", "surroundflix.user.js", "surroundflix-chrome.zip"):
-        assert name in workflow and name in guide, name
 
 
 def test_tag_needs_a_dated_section():

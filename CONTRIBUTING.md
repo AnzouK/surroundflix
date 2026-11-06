@@ -60,8 +60,8 @@ git checkout main && git pull && python3 scripts/release.py tag
 ```
 
 `prepare` turns `[Unreleased]` into the new version's section, dated with
-your computer's date, sets the version in `pyproject.toml` and
-`src/surroundflix/__init__.py`, commits on a `release/v…` branch and pushes
+your computer's date, sets the version in `src/surroundflix/__init__.py`
+(the only place it is written), commits on a `release/v…` branch and pushes
 it. `tag` checks that the section of the code's version is dated, then tags
 `main` and pushes the tag. Both accept `--dry-run`.
 

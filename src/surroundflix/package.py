@@ -14,7 +14,7 @@ import platform
 import shutil
 
 # Runs Apple's tools (xcrun, xcodebuild, hdiutil) with fixed arguments, never a shell.
-import subprocess  # nosec B404
+import subprocess
 from pathlib import Path
 
 from . import __version__
@@ -56,7 +56,7 @@ def _find_project(project_dir: Path) -> Path:
 
 
 def _app_scheme(project: Path) -> str:
-    out = subprocess.run(  # nosec B603 B607
+    out = subprocess.run(
         ["xcodebuild", "-list", "-json", "-project", str(project)],
         check=True,
         capture_output=True,
@@ -79,7 +79,7 @@ def build_app(work_dir: Path, preset: str, bundle_id: str) -> Path:
 
     project = _find_project(project_dir)
     derived = work_dir / "derived"
-    subprocess.run(  # nosec B603 B607
+    subprocess.run(
         [
             "xcodebuild",
             "-project",
@@ -114,7 +114,7 @@ def forget_build_copy(app: Path) -> None:
     """xcodebuild registers the app it builds with macOS, so Safari would list
     that copy's extension next to the installed one. Unregister it."""
     if Path(LSREGISTER).exists():
-        subprocess.run([LSREGISTER, "-u", str(app)], check=False)  # nosec B603
+        subprocess.run([LSREGISTER, "-u", str(app)], check=False)
 
 
 def make_dmg(app: Path, userscript: Path, out_file: Path, homepage: str) -> Path:
@@ -132,7 +132,7 @@ def make_dmg(app: Path, userscript: Path, out_file: Path, homepage: str) -> Path
     )
 
     out_file.parent.mkdir(parents=True, exist_ok=True)
-    subprocess.run(  # nosec B603 B607
+    subprocess.run(
         [
             "hdiutil",
             "create",

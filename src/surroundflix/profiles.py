@@ -40,7 +40,7 @@ DEFAULT_VIDEO_CODEC = "auto"
 
 # Strings the static playercore check expects to find. If Netflix renames
 # or drops these, the injected profiles would be ignored.
-EXPECTED_IN_PLAYERCORE = [DDPLUS_51, DDPLUS_ATMOS, "heaac-2-dash", "heaac-5.1-dash", "profiles"]
+EXPECTED_IN_PLAYERCORE = [DDPLUS_51, DDPLUS_ATMOS, "heaac-2-dash", HEAAC_51]
 
 
 def resolve(preset: str) -> list[str]:

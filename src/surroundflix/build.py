@@ -14,7 +14,7 @@ import platform
 import shutil
 
 # Runs Apple's tools (xcrun, xcodebuild, hdiutil) with fixed arguments, never a shell.
-import subprocess  # nosec B404
+import subprocess
 from dataclasses import dataclass
 from importlib import resources
 from pathlib import Path
@@ -287,7 +287,7 @@ XCODE_SELECT_HELP = (
 
 def require_converter() -> None:
     """Fail early, with the fix, when xcrun points at the Command Line Tools."""
-    found = subprocess.run(  # nosec B603 B607
+    found = subprocess.run(
         ["xcrun", "--find", "safari-web-extension-converter"],
         capture_output=True,
         text=True,
@@ -310,7 +310,7 @@ def make_xcode_project(
             "xcrun not found. Install Xcode from the App Store, then run: xcode-select --install"
         )
     require_converter()
-    subprocess.run(cmd, check=True)  # nosec B603
+    subprocess.run(cmd, check=True)
 
     from .xcode import customize_project
 
