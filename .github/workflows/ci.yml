@@ -46,7 +46,8 @@ jobs:
 
   python:
     name: Python ${{ matrix.python }} (ruff, pytest)
-    runs-on: ubuntu-latest
+    # 3.9 is the python3 macOS ships; Ubuntu 26.04 runners have no build of it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     strategy:
       fail-fast: false
