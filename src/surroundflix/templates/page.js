@@ -72,8 +72,11 @@
     var root = document.documentElement;
     if (!root || !root.setAttribute) return;
     root.setAttribute(STATUS_ATTR, nativeStringify({
+      version: state.version,
       preset: state.preset,
+      dolbySupported: state.dolbySupported,
       requested: state.requested,
+      requestedVideo: state.requestedVideo,
       received: state.lastManifestAudio,
       video: state.lastManifestVideo,
       patchedRequests: state.patchedRequests

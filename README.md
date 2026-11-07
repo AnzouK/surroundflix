@@ -104,7 +104,8 @@ may not start: switch back to Automatic. Quality and codec combine:
 HEVC with At least 4K gives 4K HEVC.
 
 Under each menu, a line explains the option currently chosen. Changes
-apply to the next title you start.
+apply to the next title you start, or right away with "Reload Netflix to
+apply now", which shows up in the popup after a change.
 
 ### On this tab
 
@@ -275,12 +276,15 @@ surroundflix build --preset surround   # 5.1 only, no Atmos request
 surroundflix dmg                # Surroundflix.app + .dmg in release/
 ```
 
-Type `__surroundflix` in the Web Inspector console on Netflix:
+To report a problem, start the title and click "Copy debug info" in the
+popup: it copies your settings, your browser version and what Netflix sent.
+With the userscript, type `__surroundflix` in the Web Inspector console on
+Netflix instead:
 `lastManifestAudio` and `lastManifestVideo` show what Netflix actually sent
 back, and `requestedVideo` the video formats asked for when a codec is chosen.
 A `--debug` build also logs each step to the console. The
 [bug report form](https://github.com/AnzouK/surroundflix/issues/new?template=bug_report.yml)
-asks for that output.
+asks for either output.
 
 Open `dist/app/Main.html` in a browser to preview the app window; add
 `?state=on&lang=pt-AO&theme=dark` to try other states, languages and themes.

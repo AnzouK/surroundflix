@@ -45,11 +45,16 @@
     <p class="note" id="video-codec-desc" aria-live="polite" data-i18n="cdesc_auto"></p>
   </fieldset>
   <p class="note" data-i18n="apply_hint"></p>
+  <button type="button" id="apply-now" class="apply" hidden data-i18n="apply_now"></button>
   <section class="tab">
     <h2 data-i18n="tab_heading"></h2>
     <p id="tab-status" aria-live="polite"></p>
     <p id="tab-video" hidden></p>
     <p id="tab-range" class="note" hidden></p>
+    <p class="debug" id="debug" hidden>
+      <button type="button" id="copy-debug" data-i18n="debug_copy"></button>
+      <span class="note" id="debug-result" aria-live="polite"></span>
+    </p>
   </section>
 </main>
 <script src="popup.js"></script>

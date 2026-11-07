@@ -47,7 +47,9 @@ El.prototype.remove = function () {
   var self = this;
   this.parent.children = this.parent.children.filter(function (c) { return c !== self; });
 };
-El.prototype.addEventListener = function () {};
+El.prototype.addEventListener = function (type, fn) { this["on" + type] = fn; };
+El.prototype.select = function () {};
+El.prototype.focus = function () { document.activeElement = this; };
 El.prototype.querySelectorAll = function () { return this.children.slice(); };
 El.prototype.getAttribute = function (k) { return this.attrs[k] || null; };
 El.prototype.text = function () {
@@ -65,9 +67,14 @@ function fill(id, list) {
 fill("video-quality", %(quality)s);
 fill("video-codec", %(codec)s);
 var radios = ["atmos", "surround"].map(function (v) { var r = new El(); r._value = v; return r; });
-var saved = {};
+var saved = {}, reloaded = null, closed = false;
+globalThis.close = function () { closed = true; };
 globalThis.window = globalThis;
-globalThis.navigator = { languages: ["en-US"] };
+var copied = null;
+// Node 21+ has its own read-only navigator.
+Object.defineProperty(globalThis, "navigator", { configurable: true, value: {
+  languages: ["en-US"], userAgent: "TestBrowser/1.0",
+  clipboard: { writeText: function (text) { copied = text; return Promise.resolve(); } } } });
 globalThis.location = { search: %(search)s };
 // A Mac without an AV1 decoder.
 globalThis.MediaSource = { isTypeSupported: function (t) { return t.indexOf("av01") === -1; } };
@@ -78,11 +85,14 @@ globalThis.document = {
   querySelector: function () { return radios.filter(function (r) { return r.checked; })[0] || null; },
   createElement: function () { return new El(); },
   createTextNode: function (text) { var n = new El(); n.textContent = text; return n; },
+  body: new El("body"),
+  activeElement: null,
+  execCommand: function () { return false; },
 };
 """
 
 
-def run(search="", preset="atmos", storage=None, reply=None):
+def run(search="", preset="atmos", storage=None, reply=None, then=""):
     code = FAKE_DOM % {
         "search": json.dumps(search),
         "quality": json.dumps(options("video-quality")),
@@ -95,16 +105,20 @@ def run(search="", preset="atmos", storage=None, reply=None):
             " set: function (x) { Object.assign(saved, x); }}},"
             " tabs: {query: function () {"
             " return Promise.resolve([{id: 1, url: 'https://www.netflix.com/watch/1'}]); },"
-            f" sendMessage: function () {{ return Promise.resolve({json.dumps(reply)}); }}}}}};\n"
+            f" sendMessage: function () {{ return Promise.resolve({json.dumps(reply)}); }},"
+            " reload: function (id) { reloaded = id; return Promise.resolve(); }}};\n"
         )
     code += render_popup_script(preset, check_dolby=False)
+    if then:
+        code += f"setTimeout(function () {{ {then} }}, 20);\n"
     code += """
 setTimeout(function () {
   console.log(JSON.stringify({status: getEl("tab-status").text(),
+    debugHidden: getEl("debug").hidden, copied: copied, result: getEl("debug-result").textContent,
     preset: getEl("preset-desc").textContent, video: getEl("tab-video").text(),
     rangeHidden: getEl("tab-range").hidden, codec: getEl("video-codec").value,
     checked: radios.filter(function (r) { return r.checked; }).map(function (r) { return r.value; }),
-    saved: saved}));
+    saved: saved, applyHidden: getEl("apply-now").hidden, reloaded: reloaded, closed: closed}));
 }, 50);
 """
     proc = subprocess.run([node, "-e", code], capture_output=True, text=True, check=True)
@@ -144,3 +158,64 @@ def test_video_range():
     assert run(reply=tab(720, 2160))["rangeHidden"] is False
     out = run(reply=tab(2160, 720))
     assert out["video"] and out["rangeHidden"] is True
+
+
+def test_debug_button_hidden_without_netflix():
+    assert run(storage={})["debugHidden"] is True
+
+
+def test_debug_info_is_copied():
+    click = 'getEl("copy-debug").onclick();'
+    out = run(storage={"videoCodec": "hevc"}, reply=tab(720, 2160), then=click)
+    assert out["debugHidden"] is False and out["result"] == EN["debug_copied"]
+    info = json.loads(out["copied"])
+    assert info["browser"] == "TestBrowser/1.0"
+    assert info["settings"] == {"preset": "atmos", "videoQuality": "auto", "videoCodec": "hevc"}
+    assert info["page"]["received"] == ["ddplus-5.1-dash"]
+
+
+CHANGE_QUALITY = 'getEl("video-quality").value = "best"; getEl("video-quality").onchange();'
+
+
+def test_apply_now_after_a_change():
+    assert run(storage={}, reply=tab(720, 2160))["applyHidden"] is True
+    out = run(storage={}, reply=tab(720, 2160), then=CHANGE_QUALITY)
+    assert out["applyHidden"] is False and out["saved"] == {"videoQuality": "best"}
+
+
+def test_apply_now_hidden_outside_netflix():
+    assert run(storage={}, then=CHANGE_QUALITY)["applyHidden"] is True
+
+
+def test_apply_now_reloads_the_tab():
+    out = run(
+        storage={}, reply=tab(720, 2160), then=CHANGE_QUALITY + 'getEl("apply-now").onclick();'
+    )
+    assert out["reloaded"] == 1 and out["closed"] is True
+
+
+def copy_with(write, exec_command):
+    return (
+        f"navigator.clipboard.writeText = function () {{ return {write}; }};"
+        f"document.execCommand = function () {{ return {exec_command}; }};"
+        'getEl("copy-debug").onclick();'
+    )
+
+
+def test_debug_copy_fallback():
+    out = run(storage={}, reply=tab(720, 2160), then=copy_with("Promise.reject(1)", "true"))
+    assert out["result"] == EN["debug_copied"]
+
+
+def test_debug_copy_failure():
+    out = run(storage={}, reply=tab(720, 2160), then=copy_with("Promise.reject(1)", "false"))
+    assert out["result"] == EN["debug_failed"]
+
+
+def test_debug_info_keeps_known_fields():
+    reply = tab(720, 2160)
+    reply["status"]["injected"] = "x"
+    out = run(storage={}, reply=reply, then='getEl("copy-debug").onclick();')
+    assert "injected" not in json.loads(out["copied"])["page"]
+    assert run(storage={}, reply={"active": True, "status": 42})["debugHidden"] is True
+    assert run(storage={}, reply={"active": True, "status": {"x": 1}})["debugHidden"] is True

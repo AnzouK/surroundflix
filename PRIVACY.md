@@ -16,6 +16,9 @@ tracking and no cookies.
   Netflix sent for the current title, and the badges come from the title
   features Netflix already sends to the page. That information stays in
   the page and the popup.
+- "Copy debug info" copies the audio and video details shown for the
+  current tab, your three settings and your browser's user agent to your
+  clipboard. Nothing is sent: you choose where to paste it.
 - They read nothing else: no viewing history, no account details, no
   other site.
 
