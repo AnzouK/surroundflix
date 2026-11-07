@@ -78,7 +78,11 @@
       "cdesc_h264high": "Newer H.264 profile, the one Netflix usually sends with H.264.",
       "cdesc_hevc": "Netflix's 4K, HDR10 and Dolby Vision streams.",
       "cdesc_av1": "Lightest for the same quality score. Can look softer at low bitrates.",
-      "cdesc_vp9": "Google's codec, between H.264 and AV1 in size."
+      "cdesc_vp9": "Google's codec, between H.264 and AV1 in size.",
+      "debug_copy": "Copy debug info",
+      "debug_copied": "Copied. Paste it into your bug report.",
+      "debug_failed": "Couldn't copy.",
+      "apply_now": "Reload Netflix to apply now"
     },
     "fr": {
       "status_checking": "Vérification de Safari…",
@@ -146,7 +150,11 @@
       "cdesc_h264high": "Profil H.264 plus récent, celui que Netflix envoie en général en H.264.",
       "cdesc_hevc": "Les versions 4K, HDR10 et Dolby Vision de Netflix.",
       "cdesc_av1": "Le plus léger à qualité égale. L'image peut paraître plus douce à faible débit.",
-      "cdesc_vp9": "Le codec de Google, entre H.264 et AV1 en poids."
+      "cdesc_vp9": "Le codec de Google, entre H.264 et AV1 en poids.",
+      "debug_copy": "Copier les infos de diagnostic",
+      "debug_copied": "Copiées. Collez-les dans votre rapport de bug.",
+      "debug_failed": "Copie impossible.",
+      "apply_now": "Recharger Netflix pour appliquer"
     },
     "pt-PT": {
       "status_checking": "A verificar o Safari…",
@@ -214,7 +222,11 @@
       "cdesc_h264high": "Perfil H.264 mais recente, o que a Netflix costuma enviar em H.264.",
       "cdesc_hevc": "As versões 4K, HDR10 e Dolby Vision da Netflix.",
       "cdesc_av1": "O mais leve para a mesma qualidade. A imagem pode parecer mais suave com débitos baixos.",
-      "cdesc_vp9": "O codec da Google, entre o H.264 e o AV1 em tamanho."
+      "cdesc_vp9": "O codec da Google, entre o H.264 e o AV1 em tamanho.",
+      "debug_copy": "Copiar informação de diagnóstico",
+      "debug_copied": "Copiada. Cole-a no seu relatório de erro.",
+      "debug_failed": "Não foi possível copiar.",
+      "apply_now": "Recarregar a Netflix para aplicar"
     },
     "pt-BR": {
       "status_checking": "Verificando o Safari…",
@@ -282,7 +294,11 @@
       "cdesc_h264high": "Perfil H.264 mais recente, o que a Netflix costuma enviar em H.264.",
       "cdesc_hevc": "As versões 4K, HDR10 e Dolby Vision da Netflix.",
       "cdesc_av1": "O mais leve para a mesma qualidade. A imagem pode parecer mais suave com taxas de bits baixas.",
-      "cdesc_vp9": "O codec da Google, entre o H.264 e o AV1 em tamanho."
+      "cdesc_vp9": "O codec da Google, entre o H.264 e o AV1 em tamanho.",
+      "debug_copy": "Copiar informações de diagnóstico",
+      "debug_copied": "Copiadas. Cole no seu relatório de bug.",
+      "debug_failed": "Não foi possível copiar.",
+      "apply_now": "Recarregar a Netflix para aplicar"
     },
     "pt-AO": {
       "status_checking": "A verificar o Safari…",
@@ -350,7 +366,11 @@
       "cdesc_h264high": "Perfil H.264 mais recente, o que a Netflix costuma enviar em H.264.",
       "cdesc_hevc": "As versões 4K, HDR10 e Dolby Vision da Netflix.",
       "cdesc_av1": "O mais leve para a mesma qualidade. A imagem pode parecer mais suave com débitos baixos.",
-      "cdesc_vp9": "O codec da Google, entre o H.264 e o AV1 em tamanho."
+      "cdesc_vp9": "O codec da Google, entre o H.264 e o AV1 em tamanho.",
+      "debug_copy": "Copiar informação de diagnóstico",
+      "debug_copied": "Copiada. Cole-a no seu relatório de erro.",
+      "debug_failed": "Não foi possível copiar.",
+      "apply_now": "Recarregar a Netflix para aplicar"
     }
   }
 }

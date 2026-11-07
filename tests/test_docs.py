@@ -50,7 +50,15 @@ def test_showcase_svg_is_safe_and_up_to_date():
     svg_path = ROOT / "design" / "showcase.svg"
     svg = svg_path.read_text()
     xml.dom.minidom.parseString(svg)  # noqa: S318 (our own generated file)
-    for forbidden in ("<script", "<img", "data:", "javascript:", "onload=", "onclick="):
+    for forbidden in (
+        "<script",
+        "<img",
+        "<metadata",
+        "data:",
+        "javascript:",
+        "onload=",
+        "onclick=",
+    ):
         assert forbidden not in svg.lower(), forbidden
     sys.path.insert(0, str(ROOT / "scripts"))
     import make_showcase

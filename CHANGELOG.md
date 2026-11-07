@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- "Copy debug info" in the popup copies your settings, browser version and
+  what Netflix sent, ready to paste into a bug report.
+- After a change in the popup, "Reload Netflix to apply now" reloads the
+  Netflix tab so the new settings apply without waiting for the next title.
+
 ### Fixed
 
 - Codec and quality changes in the popup apply to the next title in every
@@ -19,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the previous title's badges.
 - `surroundflix xcode` passes `--video-quality` and `--video-codec` to the
   userscript it builds.
+- `surroundflix check` retries a download that is cut off before giving up.
 - The app's update check ignores release tags that aren't plain versions.
 
 ## [1.0.1] - 2026-11-06

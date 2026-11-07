@@ -51,11 +51,35 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     if ((only && only !== browserName) || !decodes(codecOptions[c].value)) codecOptions[c].remove();
   }
 
-  function save(items) {
+  // After a change, "Apply now" reloads the Netflix tab, so the player asks
+  // Netflix again with the new settings.
+  var applyNow = document.getElementById("apply-now");
+  var debugResult = document.getElementById("debug-result");
+  var netflixTab = null, changed = false;
+
+  function showApply() {
+    applyNow.hidden = !changed || netflixTab === null;
+  }
+
+  function store(items) {
     try {
       if (storage) storage.set(items);
     } catch (err) {}
   }
+
+  function save(items) {
+    store(items);
+    changed = true;
+    debugResult.textContent = ""; // what was copied no longer matches
+    showApply();
+  }
+
+  applyNow.addEventListener("click", function () {
+    function close() { window.close(); }
+    try {
+      Promise.resolve(api.tabs.reload(netflixTab)).then(close, close);
+    } catch (err) {}
+  });
 
   select(DEFAULT_PRESET);
   videoQuality.value = DEFAULT_VIDEO_QUALITY;
@@ -70,7 +94,7 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
       if (!videoCodec.value) {
         // Codec no longer offered in this browser, so go back to Automatic.
         videoCodec.value = DEFAULT_VIDEO_CODEC;
-        save({ videoCodec: DEFAULT_VIDEO_CODEC });
+        store({ videoCodec: DEFAULT_VIDEO_CODEC });
       }
       describeAll();
     }, function () {});
@@ -138,8 +162,77 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     if (hasRange) rangeOut.textContent = t(lang, "tab_video_range", { min: Math.round(video.minHeight) + "p", max: Math.round(video.maxHeight) + "p" });
   }
 
+  // Everything a bug report needs, from this popup and from the page.
+  var debug = document.getElementById("debug");
+  var lastStatus = null;
+  var STATUS_KEYS = ["version", "preset", "dolbySupported", "requested", "requestedVideo",
+    "received", "video", "patchedRequests"];
+
+  // The page wrote the status: copy only the fields page.js publishes.
+  function knownStatus(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    var out = {}, found = false;
+    STATUS_KEYS.forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(raw, key)) {
+        out[key] = raw[key];
+        found = true;
+      }
+    });
+    return found ? out : null;
+  }
+
+  function debugInfo() {
+    var preset = document.querySelector('input[name="preset"]:checked');
+    return JSON.stringify({
+      browser: navigator.userAgent,
+      settings: {
+        preset: preset ? preset.value : null,
+        videoQuality: videoQuality.value,
+        videoCodec: videoCodec.value
+      },
+      page: lastStatus
+    }, null, 2);
+  }
+
+  function copyText(text) {
+    var fallback = function () {
+      var focused = document.activeElement;
+      var area = document.createElement("textarea");
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      var ok = false;
+      try {
+        ok = document.execCommand("copy");
+      } catch (err) {}
+      area.remove();
+      if (focused && focused.focus) focused.focus();
+      if (!ok) throw new Error("copy refused");
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return Promise.resolve(navigator.clipboard.writeText(text)).then(null, fallback);
+      }
+      fallback();
+      return Promise.resolve();
+    } catch (err) {
+      return Promise.reject(err);
+    }
+  }
+
+  document.getElementById("copy-debug").addEventListener("click", function () {
+    copyText(debugInfo()).then(function () {
+      debugResult.textContent = t(lang, "debug_copied");
+    }, function () {
+      debugResult.textContent = t(lang, "debug_failed");
+    });
+  });
+
   function showStatus(reply) {
-    showVideo(reply && reply.active && reply.status ? reply.status.video : null);
+    lastStatus = reply && reply.active ? knownStatus(reply.status) : null;
+    debug.hidden = !lastStatus;
+    debugResult.textContent = "";
+    showVideo(lastStatus ? lastStatus.video : null);
     out.textContent = "";
     if (reply && reply.noAnswer) {
       out.textContent = t(lang, "tab_no_access");
@@ -179,7 +272,11 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
         var tab = tabs && tabs[0];
         if (!tab) return null;
         return Promise.resolve(api.tabs.sendMessage(tab.id, { type: "surroundflix-status" }))
-          .then(null, function () {
+          .then(function (reply) {
+            if (reply && reply.active) netflixTab = tab.id;
+            showApply();
+            return reply;
+          }, function () {
             // No content script answered. The URL is only visible on sites
             // the extension may access, so an unknown URL can be Netflix
             // without permission (or a second copy of the extension).

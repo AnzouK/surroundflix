@@ -123,7 +123,8 @@ def icon(size: int) -> str:
     """The icon as inline SVG. GitHub serves repository SVGs with a policy
     that blocks images inside them (even data: URIs), so no <img> here."""
     svg = (ROOT / "assets" / "icon.svg").read_text()
-    svg = re.sub(r"<title>.*?</title>", "", svg)
+    svg = re.sub(r"<(title|metadata)>.*?</\1>", "", svg, flags=re.S)
+    svg = re.sub(r'\s+xmlns:\w+="[^"]*"', "", svg)
     return re.sub(
         r'width="\d+" height="\d+"',
         f'width="{size}" height="{size}" aria-hidden="true"',
@@ -155,6 +156,7 @@ def popup_markup(strings: dict) -> str:
     html = (TEMPLATES / "popup.html").read_text()
     main = re.search(r"<main>.*?</main>", html, re.S).group(0)
     main = re.sub(r'\s*<p class="note warn" id="no-dolby"[^>]*></p>', "", main)
+    main = re.sub(r'\s*<button [^>]*id="apply-now"[^>]*></button>', "", main)
     main = fill(main, strings)
     main = main.replace('value="atmos">', 'value="atmos" checked>')
     best = strings["tab_best"].split("{format}")
@@ -175,6 +177,7 @@ def popup_markup(strings: dict) -> str:
     main = main.replace(
         '<p id="tab-range" class="note" hidden></p>', f'<p id="tab-range" class="note">{vrange}</p>'
     )
+    main = main.replace('<p class="debug" id="debug" hidden>', '<p class="debug" id="debug">')
     main = re.sub(r"<img [^>]*>", icon(28), main, count=1)
     return f'<div class="sf-popup">{xhtml(main)}</div>'
 

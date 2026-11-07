@@ -9,7 +9,10 @@ format, or in the server's answers, goes unnoticed here.
 from __future__ import annotations
 
 import hashlib
+import http.client
 import re
+import time
+import urllib.error
 import urllib.request
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -90,10 +93,23 @@ def _open(req: urllib.request.Request, timeout: int):
     return _OPENER.open(req, timeout=timeout)
 
 
+# Connections from CI runners are sometimes cut mid-download.
+RETRY_DELAYS = (3, 10)
+
+
 def _get(url: str, timeout: int = 30) -> str:
     req = urllib.request.Request(validate_url(url), headers={"User-Agent": USER_AGENT})  # noqa: S310
-    with _open(req, timeout) as resp:
-        data = resp.read(MAX_DOWNLOAD + 1)
+    for delay in (*RETRY_DELAYS, None):
+        try:
+            with _open(req, timeout) as resp:
+                data = resp.read(MAX_DOWNLOAD + 1)
+            break
+        except urllib.error.HTTPError:
+            raise
+        except (OSError, http.client.HTTPException):
+            if delay is None:
+                raise
+            time.sleep(delay)
     if len(data) > MAX_DOWNLOAD:
         raise ValueError(f"{url} is larger than {MAX_DOWNLOAD} bytes")
     return data.decode("utf-8", errors="replace")

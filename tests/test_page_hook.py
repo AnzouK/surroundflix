@@ -141,6 +141,7 @@ def test_status_is_mirrored_on_html():
     assert status["received"] == ["ddplus-5.1-dash", "heaac-2-dash"]
     assert status["patchedRequests"] == 2
     assert "ddplus-atmos-dash" in status["requested"]
+    assert status["version"] and "requestedVideo" in status
 
 
 def test_nested_camel_case_manifest_is_read():

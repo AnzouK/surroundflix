@@ -55,9 +55,10 @@ body:
   - type: textarea
     id: state
     attributes:
-      label: Output of __surroundflix
+      label: Debug info
       description: |
-        Start the title, open the browser console on netflix.com
+        Start the title, click "Copy debug info" in the toolbar popup and
+        paste it here. With the userscript, open the console on netflix.com
         (Safari: Develop > Show Web Inspector > Console), type
         `__surroundflix` and paste the result.
       render: json

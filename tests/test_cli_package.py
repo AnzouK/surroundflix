@@ -203,8 +203,40 @@ def test_check_network_error_is_inconclusive(monkeypatch, capsys):
 def test_check_cut_connection_is_inconclusive(monkeypatch):
     import http.client
 
+    calls = []
+
     def cut(req, timeout):
+        calls.append(req.full_url)
         raise http.client.IncompleteRead(b"")
 
     monkeypatch.setattr(playercore, "_open", cut)
-    assert main(["check"]) == 2
+    monkeypatch.setattr(playercore.time, "sleep", lambda s: None)
+    url = "https://assets.nflxext.com/x/cadmium-playercore-6.0.js"
+    assert main(["check", "--url", url]) == 2
+    assert len(calls) == 3
+
+
+def test_cut_download_is_retried(monkeypatch):
+    import http.client
+
+    class Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n):
+            return b'"heaac-2-dash" "heaac-5.1-dash" "ddplus-5.1-dash" "ddplus-atmos-dash"'
+
+    answers = [http.client.IncompleteRead(b"x" * 10), Resp()]
+
+    def flaky(req, timeout):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(playercore, "_open", flaky)
+    monkeypatch.setattr(playercore.time, "sleep", lambda s: None)
+    assert main(["check", "--url", "https://assets.nflxext.com/x/cadmium-playercore-6.0.js"]) == 0
