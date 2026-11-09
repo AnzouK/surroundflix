@@ -80,6 +80,16 @@ def test_find_url_and_version():
     assert playercore.version_from_url(url) == "6.0051.123.911"
 
 
+def test_find_escaped_url():
+    config = (
+        '"coreplayer.asset.4.safari":"https:\\x2F\\x2Fassets.nflxext.com\\x2Fplayer\\x2Fhtml'
+        '\\x2Fffe\\x2Fcadmium-playercore-6.0065.004.911.js"'
+    )
+    url = "https://assets.nflxext.com/player/html/ffe/cadmium-playercore-6.0065.004.911.js"
+    assert playercore.find_playercore_url(config) == url
+    assert playercore.find_playercore_url(config.replace("\\x2F", "\\u002f")) == url
+
+
 def test_analyze_ok_and_missing():
     assert playercore.analyze(GOOD_CORE).ok
     bad = playercore.analyze(GOOD_CORE.replace("ddplus-atmos-dash", "eac3-joc"))
