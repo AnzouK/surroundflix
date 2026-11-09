@@ -116,6 +116,8 @@ def _get(url: str, timeout: int = 30) -> str:
 
 
 def find_playercore_url(html: str) -> str | None:
+    # Netflix's page config escapes slashes in URLs (https:\x2F\x2Fassets...).
+    html = re.sub(r"\\(?:x2f|u002f|/)", "/", html, flags=re.I)
     m = PLAYERCORE_URL_RE.search(html)
     return m.group(0) if m else None
 
