@@ -182,6 +182,12 @@ def test_surround_preset_shows_5_1():
     assert "Dolby Atmos" not in out["witcher"] and "5.1" in out["witcher"]
 
 
+def test_netflix_preset_shows_no_audio_badges():
+    out = run(preset="netflix")
+    assert out["witcher"][-2:] == ["Ultra HD 4K", "accessibility"]
+    assert out["blacklist"] == ["year", "~HD", "Ultra HD 4K"]
+
+
 def test_redrawing_does_not_duplicate():
     parse = f"JSON.parse({json.dumps(json.dumps(RESPONSE))});"
     extra = "setTimeout(function () { " + parse + " }, 120);"

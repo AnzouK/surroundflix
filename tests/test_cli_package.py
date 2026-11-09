@@ -10,6 +10,7 @@ import pytest
 
 from surroundflix import build, package, playercore
 from surroundflix.cli import main
+from surroundflix.profiles import EXPECTED_IN_PLAYERCORE
 
 
 def test_presets_command(capsys):
@@ -61,7 +62,7 @@ def test_check_downloads_validated_url(monkeypatch, capsys):
             return False
 
         def read(self, n):
-            return b'"heaac-2-dash" "heaac-5.1-dash" "ddplus-5.1-dash" "ddplus-atmos-dash" profiles'
+            return " ".join(f'"{n}"' for n in EXPECTED_IN_PLAYERCORE).encode()
 
     def fake_urlopen(req, timeout):
         seen["url"] = req.full_url
@@ -227,7 +228,7 @@ def test_cut_download_is_retried(monkeypatch):
             return False
 
         def read(self, n):
-            return b'"heaac-2-dash" "heaac-5.1-dash" "ddplus-5.1-dash" "ddplus-atmos-dash"'
+            return " ".join(f'"{n}"' for n in EXPECTED_IN_PLAYERCORE).encode()
 
     answers = [http.client.IncompleteRead(b"x" * 10), Resp()]
 
