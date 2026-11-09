@@ -53,20 +53,21 @@ is still a clear step up from stereo.
 ## Features
 
 <p align="center">
-  <img src="design/showcase.svg" width="720" alt="Surroundflix app window (extension on in Safari, audio and video notes, language menu, update check) next to the toolbar popup (5.1 and Atmos or 5.1 only, video quality and codec menus, and what Netflix sent: Dolby Atmos, 2160p HEVC Dolby Vision)">
+  <img src="design/showcase.svg" width="720" alt="Surroundflix app window (extension on in Safari, audio and video notes, language menu, update check) next to the toolbar popup (5.1 and Atmos, 5.1 only or Netflix default, video quality and codec menus, and what Netflix sent: Dolby Atmos, 2160p HEVC Dolby Vision)">
 </p>
 
 ### Audio
 
-The Surroundflix button in Safari's toolbar has two choices:
+The Surroundflix button in Safari's toolbar has three choices:
 
 | Audio | What it does |
 | --- | --- |
 | 5.1 and Atmos (default) | Asks Netflix for its Dolby Digital Plus 5.1, 5.1 HQ and Atmos tracks. Safari plays Atmos as its 5.1 bed |
 | 5.1 only | Leaves Atmos out of the request. Use it if an Atmos title doesn't start or stays silent |
+| Netflix default | Adds nothing: Netflix sends what it would without Surroundflix, usually stereo. Use it to check whether Surroundflix is why a title won't play. Quality and codec still apply |
 
 Chrome has no Dolby decoder, so its build asks for AAC 5.1 instead and
-the audio choice is greyed out.
+"5.1 and Atmos" is greyed out.
 
 ### Video quality
 
@@ -194,7 +195,9 @@ downmix. It's mostly useful with real 5.1 speakers.
    Without it, the audio line reads `Channels: 2.0` with an AAC codec.
 
 If Atmos titles ever fail to play, choose **5.1 only** in the toolbar
-button (userscript: build it with `--preset surround`).
+button (userscript: build it with `--preset surround`). If nothing plays,
+choose **Netflix default**: if the title then starts, please open an issue
+with the debug info.
 
 ## Tested on
 
@@ -273,6 +276,7 @@ pytest                          # run the tests, security tests included
 surroundflix build              # userscript, Safari and Chrome extensions, app window in dist/
 surroundflix build --debug      # same, with logs in the Safari console
 surroundflix build --preset surround   # 5.1 only, no Atmos request
+surroundflix build --preset netflix    # adds no audio profile
 surroundflix dmg                # Surroundflix.app + .dmg in release/
 ```
 

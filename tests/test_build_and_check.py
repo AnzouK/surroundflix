@@ -1,10 +1,11 @@
 import json
+import re
 
 import pytest
 
 from surroundflix import build, playercore
 from surroundflix.cli import main
-from surroundflix.profiles import resolve
+from surroundflix.profiles import EXPECTED_IN_PLAYERCORE, H264_MAIN, resolve
 
 
 def test_unknown_preset_raises():
@@ -69,9 +70,7 @@ def test_xcode_dry_run_command(tmp_path):
 
 
 SAMPLE_HTML = '<script src="https://assets.nflxext.com/player/html/ffe/cadmium-playercore-6.0051.123.911.js"></script>'
-GOOD_CORE = (
-    'x="heaac-2-dash";w="heaac-5.1-dash";y="ddplus-5.1-dash";z="ddplus-atmos-dash";r={profiles:[]}'
-)
+GOOD_CORE = ";".join(f'x="{name}"' for name in EXPECTED_IN_PLAYERCORE) + ";r={profiles:[]}"
 
 
 def test_find_url_and_version():
@@ -88,6 +87,11 @@ def test_find_escaped_url():
     url = "https://assets.nflxext.com/player/html/ffe/cadmium-playercore-6.0065.004.911.js"
     assert playercore.find_playercore_url(config) == url
     assert playercore.find_playercore_url(config.replace("\\x2F", "\\u002f")) == url
+
+
+def test_daily_check_watches_the_main_profiles():
+    added = re.findall(r'"(h264mpl\d+-dash-playready-prk-qc)"', build._template("page.js"))
+    assert added and set(added) <= set(H264_MAIN)
 
 
 def test_analyze_ok_and_missing():

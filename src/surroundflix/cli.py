@@ -23,7 +23,7 @@ from .profiles import (
 def _cmd_presets(args: argparse.Namespace) -> int:
     for name, profiles in PRESETS.items():
         tag = " (default)" if name == DEFAULT_PRESET else ""
-        print(f"{name}{tag}: {', '.join(profiles)}")
+        print(f"{name}{tag}: {', '.join(profiles) or 'nothing added'}")
     return 0
 
 

@@ -66,7 +66,7 @@ function fill(id, list) {
 }
 fill("video-quality", %(quality)s);
 fill("video-codec", %(codec)s);
-var radios = ["atmos", "surround"].map(function (v) { var r = new El(); r._value = v; return r; });
+var radios = ["atmos", "surround", "netflix"].map(function (v) { var r = new El(); r._value = v; return r; });
 var saved = {}, reloaded = null, closed = false;
 globalThis.close = function () { closed = true; };
 globalThis.window = globalThis;
@@ -77,7 +77,8 @@ Object.defineProperty(globalThis, "navigator", { configurable: true, value: {
   clipboard: { writeText: function (text) { copied = text; return Promise.resolve(); } } } });
 globalThis.location = { search: %(search)s };
 // A Mac without an AV1 decoder.
-globalThis.MediaSource = { isTypeSupported: function (t) { return t.indexOf("av01") === -1; } };
+globalThis.MediaSource = { isTypeSupported: function (t) {
+  return t.indexOf("av01") === -1 && (%(dolby)s || t.indexOf("ec-3") === -1); } };
 globalThis.document = {
   documentElement: {},
   getElementById: getEl,
@@ -92,9 +93,10 @@ globalThis.document = {
 """
 
 
-def run(search="", preset="atmos", storage=None, reply=None, then=""):
+def run(search="", preset="atmos", storage=None, reply=None, then="", chrome=False):
     code = FAKE_DOM % {
         "search": json.dumps(search),
+        "dolby": "false" if chrome else "true",
         "quality": json.dumps(options("video-quality")),
         "codec": json.dumps(options("video-codec")),
     }
@@ -108,7 +110,7 @@ def run(search="", preset="atmos", storage=None, reply=None, then=""):
             f" sendMessage: function () {{ return Promise.resolve({json.dumps(reply)}); }},"
             " reload: function (id) { reloaded = id; return Promise.resolve(); }}};\n"
         )
-    code += render_popup_script(preset, check_dolby=False)
+    code += render_popup_script(preset, check_dolby=chrome)
     if then:
         code += f"setTimeout(function () {{ {then} }}, 20);\n"
     code += """
@@ -118,6 +120,7 @@ setTimeout(function () {
     preset: getEl("preset-desc").textContent, video: getEl("tab-video").text(),
     rangeHidden: getEl("tab-range").hidden, codec: getEl("video-codec").value,
     checked: radios.filter(function (r) { return r.checked; }).map(function (r) { return r.value; }),
+    disabled: radios.filter(function (r) { return r.disabled; }).map(function (r) { return r.value; }),
     saved: saved, applyHidden: getEl("apply-now").hidden, reloaded: reloaded, closed: closed}));
 }, 50);
 """
@@ -219,3 +222,15 @@ def test_debug_info_keeps_known_fields():
     assert "injected" not in json.loads(out["copied"])["page"]
     assert run(storage={}, reply={"active": True, "status": 42})["debugHidden"] is True
     assert run(storage={}, reply={"active": True, "status": {"x": 1}})["debugHidden"] is True
+
+
+def test_netflix_preset_description():
+    assert run(storage={"preset": "netflix"})["preset"] == EN["pdesc_netflix"]
+
+
+def test_chrome_shows_5_1_only():
+    out = run(storage={}, chrome=True)
+    assert out["disabled"] == ["atmos"] and out["checked"] == ["surround"]
+    assert out["preset"] == EN["pdesc_surround"]
+    assert run(storage={"preset": "atmos"}, chrome=True)["checked"] == ["surround"]
+    assert run(storage={"preset": "netflix"}, chrome=True)["checked"] == ["netflix"]

@@ -21,6 +21,8 @@ PRESETS: dict[str, list[str]] = {
     "surround": [DDPLUS_20, DDPLUS_51, DDPLUS_51_HQ],
     # 5.1 plus the Atmos stream when a title has one (default).
     "atmos": [DDPLUS_20, DDPLUS_51, DDPLUS_51_HQ, DDPLUS_ATMOS],
+    # Nothing added: what Netflix sends without Surroundflix.
+    "netflix": [],
 }
 
 DEFAULT_PRESET = "atmos"
@@ -38,9 +40,20 @@ DEFAULT_VIDEO_MODE = "auto"
 VIDEO_CODECS = ["auto", "h264", "h264main", "h264high", "hevc", "av1", "vp9"]
 DEFAULT_VIDEO_CODEC = "auto"
 
+# H.264 Main profiles page.js adds when that codec is chosen: the Main
+# versions of the browser's High profiles, and Netflix's -prk-qc encodes.
+H264_MAIN = [
+    "playready-h264mpl30-dash",
+    "playready-h264mpl31-dash",
+    "playready-h264mpl40-dash",
+    "h264mpl30-dash-playready-prk-qc",
+    "h264mpl31-dash-playready-prk-qc",
+    "h264mpl40-dash-playready-prk-qc",
+]
+
 # Strings the static playercore check expects to find. If Netflix renames
 # or drops these, the injected profiles would be ignored.
-EXPECTED_IN_PLAYERCORE = [DDPLUS_51, DDPLUS_ATMOS, "heaac-2-dash", HEAAC_51]
+EXPECTED_IN_PLAYERCORE = [DDPLUS_51, DDPLUS_ATMOS, "heaac-2-dash", HEAAC_51, *H264_MAIN]
 
 
 def resolve(preset: str) -> list[str]:

@@ -125,7 +125,7 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
 
   function describeAll() {
     var preset = document.querySelector('input[name="preset"]:checked');
-    describe("preset-desc", "pdesc_" + (preset && preset.value === "surround" ? "surround" : "atmos"));
+    describe("preset-desc", "pdesc_" + (preset ? preset.value : "atmos"));
     describe("video-quality-desc", "qdesc_" + (videoQuality.value || "auto"));
     var codec = videoCodec.value || "auto";
     describe("video-codec-desc", "cdesc_" + codec, codec === "auto" ? "" : "codec_hint");
@@ -288,14 +288,25 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     }
   }
 
-  // Without Dolby support (Chrome), the preset has no effect: page.js asks
-  // for AAC 5.1 instead.
+  // Without Dolby support (Chrome), page.js asks for AAC 5.1 instead: there
+  // is no Atmos, so "5.1 only" stands for what Surroundflix gets.
   var dolby = !CHECK_DOLBY;
   if (CHECK_DOLBY) try {
     dolby = MediaSource.isTypeSupported('audio/mp4; codecs="ec-3"');
   } catch (err) {}
   if (!dolby) {
-    document.getElementById("presets").disabled = true;
+    var showAsSurround = function () {
+      var atmos = document.querySelector('input[name="preset"]:checked');
+      if (atmos && atmos.value === "atmos") select("surround");
+      describeAll();
+    };
+    for (var r = 0; r < radios.length; r++) {
+      if (radios[r].value === "atmos") radios[r].disabled = true;
+    }
     document.getElementById("no-dolby").hidden = false;
+    showAsSurround();
+    if (storage) try {
+      Promise.resolve(storage.get(["preset"])).then(showAsSurround, function () {});
+    } catch (err) {}
   }
 })();

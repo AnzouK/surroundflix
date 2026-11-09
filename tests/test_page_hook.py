@@ -117,6 +117,12 @@ def test_popup_choice_overrides_default():
     assert out["state"]["preset"] == "surround"
 
 
+def test_netflix_preset_adds_nothing():
+    out = run("atmos", attr="netflix")
+    assert out["flat"] == ["heaac-2-dash", "playready-h264mpl40-dash"]
+    assert run(attr="netflix", dolby=False, check_dolby=True)["flat"] == out["flat"]
+
+
 def test_unknown_popup_value_falls_back_to_default():
     assert "ddplus-atmos-dash" in run("atmos", attr="dts")["flat"]
 

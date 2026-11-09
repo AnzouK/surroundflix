@@ -145,9 +145,10 @@
 
   // Read at request time, so a change in the popup applies to the next title.
   function wantedProfiles() {
-    if (!dolbySupported()) return CONFIG.noDolbyProfiles;
     state.preset = currentPreset();
-    return CONFIG.presets[state.preset];
+    var wanted = CONFIG.presets[state.preset];
+    if (!wanted.length) return wanted; // "Netflix default"
+    return dolbySupported() ? wanted : CONFIG.noDolbyProfiles;
   }
 
   function isAudioProfileList(arr) {
@@ -528,12 +529,13 @@
   // 5.1 plays everywhere (AAC 5.1 in Chrome). An Atmos title shows Atmos
   // only, like Netflix's apps do.
   function badgesFor(features) {
-    var atmosWanted = dolbySupported() &&
-      CONFIG.presets[currentPreset()].indexOf("ddplus-atmos-dash") !== -1;
+    var wanted = CONFIG.presets[currentPreset()];
+    var atmosWanted = dolbySupported() && wanted.indexOf("ddplus-atmos-dash") !== -1;
     var hasAtmos = atmosWanted && features.indexOf("AUDIO_DOLBY_ATMOS") !== -1;
     return BADGES.filter(function (b) {
       if (features.indexOf(b.feature) === -1) return false;
       if (b.id === "uhd") return !CONFIG.checkDolby;
+      if (!wanted.length) return false; // no surround asked for
       if (b.id === "atmos") return hasAtmos;
       return !hasAtmos;
     });

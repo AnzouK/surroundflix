@@ -7,10 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- "Netflix default" in the popup's audio choices adds no audio profile, to
+  check whether Surroundflix is why a title won't play. Quality and codec
+  still apply.
+
 ### Fixed
 
 - `surroundflix check` handles escaped slashes in the playercore URL on
   Netflix's homepage.
+- `surroundflix check` also watches the H.264 Main profiles the extension
+  adds.
 
 ## [1.1.0] - 2026-11-07
 
