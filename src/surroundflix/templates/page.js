@@ -61,8 +61,10 @@
     lastPatchedAt: null,
     lastManifestAudio: null,
     lastManifestVideo: null,
+    lastTitle: null,
     titlesWithBadges: 0,
-    requestedVideo: null
+    requestedVideo: null,
+    titles: Object.create(null)
   };
 
   // Mirrors the state into an attribute on <html> so the content script,
@@ -79,6 +81,8 @@
       requestedVideo: state.requestedVideo,
       received: state.lastManifestAudio,
       video: state.lastManifestVideo,
+      title: state.lastTitle,
+      titles: state.titles,
       patchedRequests: state.patchedRequests
     }));
   }
@@ -223,25 +227,29 @@
   var BITRATE_KEYS = ["bitrate", "bitrateKbps"];
   var HEIGHT_KEYS = ["res_h", "height", "resH"];
 
-  function findTracks(node, names, depth) {
+  // `where`, if given, gets the object that holds the tracks as `owner`.
+  function findTracks(node, names, depth, where) {
     if (!node || typeof node !== "object" || depth > 6) return null;
     var i;
     if (Array.isArray(node)) {
       for (i = 0; i < node.length && i < 50; i++) {
-        var found = findTracks(node[i], names, depth + 1);
+        var found = findTracks(node[i], names, depth + 1, where);
         if (found) return found;
       }
       return null;
     }
     for (i = 0; i < names.length; i++) {
       var tracks = node[names[i]];
-      if (Array.isArray(tracks) && tracks.length) return tracks;
+      if (Array.isArray(tracks) && tracks.length) {
+        if (where) where.owner = node;
+        return tracks;
+      }
     }
     var keys = Object.keys(node);
     for (i = 0; i < keys.length && i < 1000; i++) {
       var value = node[keys[i]];
       if (value && typeof value === "object") {
-        var deeper = findTracks(value, names, depth + 1);
+        var deeper = findTracks(value, names, depth + 1, where);
         if (deeper) return deeper;
       }
     }
@@ -269,8 +277,8 @@
     return seen;
   }
 
-  function inspectAudio(value) {
-    var tracks = findTracks(value, AUDIO_TRACK_KEYS, 0);
+  function inspectAudio(value, where) {
+    var tracks = findTracks(value, AUDIO_TRACK_KEYS, 0, where);
     if (!tracks) return false;
     var seen = audioProfilesOf(tracks);
     if (!seen.length) {
@@ -398,8 +406,8 @@
   }
 
   // Trims the manifest's video streams according to the chosen mode and codec.
-  function handleVideo(value, mode, codec) {
-    var tracks = findTracks(value, VIDEO_TRACK_KEYS, 0);
+  function handleVideo(value, mode, codec, where) {
+    var tracks = findTracks(value, VIDEO_TRACK_KEYS, 0, where);
     if (!tracks) return false;
     var offered = [], kept = [], total = 0;
     for (var i = 0; i < tracks.length; i++) {
@@ -465,12 +473,50 @@
     });
   }
 
+  // Netflix also sends manifests for trailers and for the next episode, so
+  // the status keeps the last few titles by id as well as the latest one.
+  // The content script picks the one in the player's URL. The id is read
+  // from "movieId" next to the tracks; without a valid one nothing is kept.
+  var MAX_RECENT_TITLES = 6;
+  var titleOrder = [];
+
+  function titleIdOf(owner) {
+    var id = owner ? owner.movieId : null;
+    if (typeof id !== "number" && typeof id !== "string") return null;
+    id = String(id);
+    return /^\d{1,12}$/.test(id) ? id : null;
+  }
+
+  function rememberTitle(id, audio, video) {
+    var old = state.titles[id];
+    var entry = {
+      received: audio ? state.lastManifestAudio : (old ? old.received : null),
+      video: video ? state.lastManifestVideo : (old ? old.video : null)
+    };
+    var at = titleOrder.indexOf(id);
+    if (at !== -1) titleOrder.splice(at, 1);
+    titleOrder.push(id);
+    state.titles[id] = entry;
+    // The title open in the player stays, however many others come after it.
+    var open = /^\/watch\/(\d{1,12})(?:\/|$)/.exec((window.location && window.location.pathname) || "");
+    while (titleOrder.length > MAX_RECENT_TITLES) {
+      var drop = open && titleOrder[0] === open[1] ? 1 : 0;
+      delete state.titles[titleOrder.splice(drop, 1)[0]];
+    }
+  }
+
   function handleManifest(value) {
     var mode = videoMode();
     if (mode === "best") lockAudioBitrate(value);
-    var audio = inspectAudio(value);
-    var video = handleVideo(value, mode, codecMode());
-    if (audio || video) publishStatus();
+    var audioAt = {}, videoAt = {};
+    var audio = inspectAudio(value, audioAt);
+    var video = handleVideo(value, mode, codecMode(), videoAt);
+    if (audio || video) {
+      var id = titleIdOf(audioAt.owner) || titleIdOf(videoAt.owner);
+      state.lastTitle = id;
+      if (id) rememberTitle(id, audio, video);
+      publishStatus();
+    }
     return audio || video;
   }
 

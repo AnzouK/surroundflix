@@ -499,3 +499,75 @@ def test_popup_picks_tallest_stream():
     """
     out = run(extra=extra)
     assert (out["video"]["height"], out["video"]["bitrate"]) == (2160, 7000)
+
+
+TITLES = """
+    const send = (id, profile, height) => {
+      const result = {audio_tracks: [{streams: [{content_profile: profile}]}],
+        video_tracks: [{streams: [{content_profile: "hevc-main10", bitrate: 900, res_h: height}]}]};
+      if (id !== undefined) result.movieId = id;
+      JSON.parse(JSON.stringify({result: result}));
+    };
+    %s
+    out.status = JSON.parse(globalThis.__attrs["data-surroundflix-status"]);
+"""
+
+
+def test_titles_recorded_by_id():
+    out = run(
+        extra=TITLES % 'send(81, "ddplus-atmos-dash", 2160); send("82", "heaac-2-dash", 720);'
+    )
+    titles = out["status"]["titles"]
+    assert list(titles) == ["81", "82"]
+    assert titles["81"]["received"] == ["ddplus-atmos-dash"]
+    assert titles["81"]["video"]["height"] == 2160
+    assert titles["82"]["received"] == ["heaac-2-dash"]
+    # The latest manifest is still reported as before.
+    assert out["status"]["received"] == ["heaac-2-dash"]
+    assert out["status"]["video"]["height"] == 720
+
+
+def test_odd_title_ids_ignored():
+    sends = [
+        "send(undefined, 'ddplus-5.1-dash', 1080)",
+        *(
+            f"send({bad}, 'ddplus-5.1-dash', 1080)"
+            for bad in ('"__proto__"', '"1e9"', "12.5", "1234567890123", "{a: 1}", "-5", '""')
+        ),
+    ]
+    out = run(extra=TITLES % ";".join(sends))
+    assert out["status"]["titles"] == {}
+    assert out["status"]["received"] == ["ddplus-5.1-dash"]
+    assert out["status"]["video"]["height"] == 1080
+
+
+def test_titles_capped_at_six():
+    sends = ";".join(f'send({i}, "heaac-2-dash", 720)' for i in range(1, 7))
+    sends += '; send(1, "ddplus-atmos-dash", 1080); send(7, "heaac-2-dash", 720)'
+    titles = run(extra=TITLES % sends)["status"]["titles"]
+    # 1 was sent again, so 2 is now the oldest and goes.
+    assert sorted(titles, key=int) == ["1", "3", "4", "5", "6", "7"]
+    assert titles["1"]["received"] == ["ddplus-atmos-dash"]
+
+
+def test_open_title_not_dropped():
+    sends = 'globalThis.location = {pathname: "/watch/1"};'
+    sends += ";".join(f'send({i}, "heaac-2-dash", 720)' for i in range(1, 9))
+    titles = run(extra=TITLES % sends)["status"]["titles"]
+    assert sorted(titles, key=int) == ["1", "4", "5", "6", "7", "8"]
+
+
+def test_status_size_with_six_titles():
+    sends = ";".join(f'send({10**11 + i}, "ddplus-atmos-dash", 2160)' for i in range(9))
+    out = run(extra=TITLES % sends, codec="hevc", video="best")
+    assert len(out["status"]["titles"]) == 6
+    # Far below the 16384 characters the content script accepts.
+    assert len(json.dumps(out["status"], separators=(",", ":"))) < 4096
+
+
+def test_filtering_ignores_title_id():
+    extra = MIXED.replace("const parsed", "manifest.result.movieId = 7;\n    const parsed")
+    extra += 'out.status = JSON.parse(globalThis.__attrs["data-surroundflix-status"]);'
+    out = run(extra=extra, codec="hevc", video="min2160")
+    assert out["kept"] == [10400]
+    assert out["status"]["titles"]["7"]["video"]["height"] == 2160

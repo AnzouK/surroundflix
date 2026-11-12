@@ -152,7 +152,7 @@ def app_markup(strings: dict, version: str) -> str:
     return f'<div class="sf-app">{xhtml(main)}</div>'
 
 
-def popup_markup(strings: dict) -> str:
+def popup_markup(strings: dict, version: str) -> str:
     html = (TEMPLATES / "popup.html").read_text()
     main = re.search(r"<main>.*?</main>", html, re.S).group(0)
     main = re.sub(r'\s*<p class="note warn" id="no-dolby"[^>]*></p>', "", main)
@@ -178,6 +178,8 @@ def popup_markup(strings: dict) -> str:
         '<p id="tab-range" class="note" hidden></p>', f'<p id="tab-range" class="note">{vrange}</p>'
     )
     main = main.replace('<p class="debug" id="debug" hidden>', '<p class="debug" id="debug">')
+    # The app window already has an element with this id.
+    main = main.replace('id="version" class="version"></span>', f'class="version">{version}</span>')
     main = re.sub(r"<img [^>]*>", icon(28), main, count=1)
     return f'<div class="sf-popup">{xhtml(main)}</div>'
 
@@ -190,7 +192,9 @@ def compose(height: int, version: str = __version__) -> str:
             scope_css((TEMPLATES / "app" / "Style.css").read_text(), ".sf-app"),
             scope_css((TEMPLATES / "popup.css").read_text(), ".sf-popup"),
             # The popup sets a fixed body width; the panel width does that here.
-            ".sf-popup { margin: 0; } .sf-app .window { margin: 0 auto; }",
+            # The picture shows the whole popup, not its scrolling box.
+            ".sf-popup { margin: 0; } .sf-popup main { max-height: none; overflow: visible; }"
+            " .sf-app .window { margin: 0 auto; }",
         ]
     )
     body = (
@@ -198,7 +202,7 @@ def compose(height: int, version: str = __version__) -> str:
         '<figure><div class="sf-window"><div class="sf-bar"><span class="sf-lights">'
         "<i></i><i></i><i></i></span>Surroundflix</div>"
         f"{app_markup(strings, version)}</div><figcaption>App window</figcaption></figure>"
-        f'<figure><div class="sf-pop"><i class="sf-arrow"></i>{popup_markup(strings)}</div>'
+        f'<figure><div class="sf-pop"><i class="sf-arrow"></i>{popup_markup(strings, version)}</div>'
         "<figcaption>Toolbar button in Safari</figcaption></figure>"
         "</div>"
     )

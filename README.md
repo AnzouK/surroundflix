@@ -113,8 +113,17 @@ apply now", which shows up in the popup after a change.
 The bottom of the popup shows what Netflix sent for the title playing in
 the current tab: the best audio (Dolby Atmos, Dolby Digital Plus 5.1, AAC
 5.1 or stereo), the video (resolution, codec, HDR or Dolby Vision,
-bitrate) and the range of resolutions Netflix offers for it. If a Netflix
-tab doesn't answer, the popup says to allow Surroundflix on netflix.com.
+bitrate) and the range of resolutions Netflix offers for it. It only
+describes the title open in the player: trailers, previews and the next
+episode Netflix loads in advance are left out, and nothing is shown on the
+other pages. If Netflix didn't send the quality or codec you chose, a line
+says so (for example "At least 4K" on a title, a plan or a browser limited
+to 1080p). If a Netflix tab doesn't answer, the popup says to allow
+Surroundflix on netflix.com.
+
+While the player is open, the toolbar button itself shows **ATM** or
+**5.1** when Netflix sent Atmos or 5.1 for the title, so you can tell
+without opening the popup.
 
 ### Title badges
 
@@ -299,9 +308,11 @@ Branches, commit messages, translations and releases are described in
 ## Automatic watch
 
 `.github/workflows/watch-playercore.yml` runs once a day. It downloads
-Netflix's current player and checks that the Dolby and AAC 5.1 profile
-names are still in it; if one is gone, it opens an issue (or comments on
-the open one). That's all it can see: a change in the request or response
+Netflix's current player and checks that the profile names Surroundflix
+adds are still in it: the Dolby and AAC 5.1 audio profiles, and the H.264
+Main video profiles. If one is gone, it opens an issue (or comments on the
+open one). The other video codecs aren't watched, since Surroundflix only
+keeps the ones your browser already asks for. That's all it can see: a change in the request or response
 format, in Netflix's pages (badges), or in what the servers send back goes
 unnoticed until someone reports it.
 
@@ -322,7 +333,9 @@ src/surroundflix/
   profiles.py           Netflix audio profiles, presets, video modes and codecs
   templates/page.js     the in-page hook: Netflix's request and answer, title badges
   templates/content.js  passes the popup choices to page.js (and loads it in Safari)
-  templates/popup.*     the toolbar button
+  templates/background.js
+                        sets the audio label on the toolbar button
+  templates/popup.*     the toolbar popup
   templates/app/        the app window (replaces Apple's default one)
   templates/i18n.json   every interface string, per language
   build.py              builds the userscript and both extensions

@@ -93,23 +93,50 @@ def _open(req: urllib.request.Request, timeout: int):
     return _OPENER.open(req, timeout=timeout)
 
 
-# Connections from CI runners are sometimes cut mid-download.
+# Connections from CI runners are often cut mid-download, at about the same
+# point on every try. A try that brought new bytes is followed at once by a
+# request for the rest (Range); one that brought nothing waits first.
 RETRY_DELAYS = (3, 10)
+MAX_TRIES = 100
 
 
 def _get(url: str, timeout: int = 30) -> str:
-    req = urllib.request.Request(validate_url(url), headers={"User-Agent": USER_AGENT})  # noqa: S310
-    for delay in (*RETRY_DELAYS, None):
+    url = validate_url(url)
+    data, version, stalled = b"", None, 0
+    for _ in range(MAX_TRIES):
+        headers = {"User-Agent": USER_AGENT}
+        if data:
+            headers["Range"] = f"bytes={len(data)}-"
+            if version:
+                # A file that changed in between comes back whole.
+                headers["If-Range"] = version
+        req = urllib.request.Request(url, headers=headers)  # noqa: S310
         try:
             with _open(req, timeout) as resp:
-                data = resp.read(MAX_DOWNLOAD + 1)
+                if data and getattr(resp, "status", 200) != 206:
+                    data = b""  # the server sent the whole file again
+                if not data:
+                    sent = getattr(resp, "headers", None) or {}
+                    version = sent.get("ETag") or sent.get("Last-Modified")
+                data += resp.read(MAX_DOWNLOAD + 1 - len(data))
             break
-        except urllib.error.HTTPError:
+        except urllib.error.HTTPError as err:
+            if data and err.code == 416:
+                data, version = b"", None  # the range no longer exists: start over
+                continue
             raise
-        except (OSError, http.client.HTTPException):
-            if delay is None:
+        except (OSError, http.client.HTTPException) as err:
+            partial = getattr(err, "partial", b"")
+            if partial and len(data) + len(partial) <= MAX_DOWNLOAD:
+                data += partial
+                stalled = 0
+                continue
+            if stalled == len(RETRY_DELAYS):
                 raise
-            time.sleep(delay)
+            time.sleep(RETRY_DELAYS[stalled])
+            stalled += 1
+    else:
+        raise OSError(f"{url} kept being cut off")
     if len(data) > MAX_DOWNLOAD:
         raise ValueError(f"{url} is larger than {MAX_DOWNLOAD} bytes")
     return data.decode("utf-8", errors="replace")
