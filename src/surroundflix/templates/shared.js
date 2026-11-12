@@ -128,6 +128,28 @@ function formatVideo(video, lang) {
   return parts.join(" \u00b7 ");
 }
 
+// What the chosen quality or codec couldn't get for this title, as a list
+// of [i18n key, variables]. Empty when Netflix had what was asked for.
+var MIN_HEIGHTS = { min720: [720, "720p"], min1080: [1080, "1080p"], min2160: [2160, "4K"] };
+
+function videoMisses(video) {
+  var misses = [];
+  if (!video) return misses;
+  var floor = Object.prototype.hasOwnProperty.call(MIN_HEIGHTS, video.mode) ? MIN_HEIGHTS[video.mode] : null;
+  if (floor && plausible(video.maxHeight, 10000) && video.maxHeight < floor[0]) {
+    misses.push(["tab_miss_quality", { wanted: floor[1], max: Math.round(video.maxHeight) + "p" }]);
+  }
+  var wanted = codecLabel(video.codecChoice);
+  if (wanted && Array.isArray(video.codecs) && video.codecs.length) {
+    var offered = video.codecs.some(function (name) {
+      return name === video.codecChoice ||
+        (video.codecChoice === "h264" && (name === "h264main" || name === "h264high"));
+    });
+    if (!offered) misses.push(["tab_miss_codec", { codec: wanted }]);
+  }
+  return misses;
+}
+
 function applyI18n(doc, lang) {
   doc.documentElement.lang = lang;
   var nodes = doc.querySelectorAll("[data-i18n]");

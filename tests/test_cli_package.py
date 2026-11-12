@@ -241,3 +241,74 @@ def test_cut_download_is_retried(monkeypatch):
     monkeypatch.setattr(playercore, "_open", flaky)
     monkeypatch.setattr(playercore.time, "sleep", lambda s: None)
     assert main(["check", "--url", "https://assets.nflxext.com/x/cadmium-playercore-6.0.js"]) == 0
+
+
+def test_cut_download_resumes(monkeypatch):
+    import http.client
+
+    body = " ".join(f'"{n}"' for n in EXPECTED_IN_PLAYERCORE).encode()
+    ranges = []
+
+    class Resp:
+        headers = {"ETag": '"v1"'}
+
+        def __init__(self, start, status, cut):
+            self.start, self.status, self.cut = start, status, cut
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n):
+            if self.cut:
+                raise http.client.IncompleteRead(body[self.start : self.start + 40])
+            return body[self.start :]
+
+    def cut_twice(req, timeout):
+        header = req.get_header("Range")
+        assert req.get_header("If-range") == ('"v1"' if header else None)
+        ranges.append(header)
+        start = int(header[len("bytes=") : -1]) if header else 0
+        return Resp(start, 206 if header else 200, cut=len(ranges) < 3)
+
+    def no_sleep(seconds):
+        raise AssertionError("a try that made progress doesn't wait")
+
+    monkeypatch.setattr(playercore, "_open", cut_twice)
+    monkeypatch.setattr(playercore.time, "sleep", no_sleep)
+    assert main(["check", "--url", "https://assets.nflxext.com/x/cadmium-playercore-6.0.js"]) == 0
+    assert ranges == [None, "bytes=40-", "bytes=80-"]
+
+
+def test_unsatisfiable_range_starts_over(monkeypatch):
+    import http.client
+    import urllib.error
+
+    body = " ".join(f'"{n}"' for n in EXPECTED_IN_PLAYERCORE).encode()
+    ranges = []
+
+    class Resp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self, n):
+            if len(ranges) == 1:
+                raise http.client.IncompleteRead(body[:40])
+            return body
+
+    def shrunk(req, timeout):
+        ranges.append(req.get_header("Range"))
+        if len(ranges) == 2:
+            raise urllib.error.HTTPError(req.full_url, 416, "Range Not Satisfiable", {}, None)
+        return Resp()
+
+    monkeypatch.setattr(playercore, "_open", shrunk)
+    assert main(["check", "--url", "https://assets.nflxext.com/x/cadmium-playercore-6.0.js"]) == 0
+    assert ranges == [None, "bytes=40-", None]

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The toolbar button shows "ATM" or "5.1" while the player is open on a
+  title Netflix sent with Atmos or 5.1.
+- "On this tab" in the popup says when Netflix didn't send the quality or
+  codec you chose.
+- The popup shows the version of Surroundflix.
+
+### Fixed
+
+- The popup scrolls when it is taller than Safari allows, instead of being
+  cut off.
+- The popup finds its tab in a Safari web app (Netflix added to the Dock),
+  so "On this tab" and "Reload Netflix to apply now" work there.
+- "On this tab" only describes the title open in the player. Trailers,
+  previews and the next episode Netflix loads in advance no longer show up
+  there, and nothing is shown outside the player.
+- `surroundflix check` resumes a download that is cut off instead of
+  starting over.
+
 ## [1.2.0] - 2026-11-09
 
 ### Added

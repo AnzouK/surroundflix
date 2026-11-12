@@ -44,9 +44,15 @@ def test_minimal_manifest_permissions(dist, target):
         "optional_host_permissions",
         "externally_connectable",
         "content_security_policy",
-        "background",
     ):
         assert key not in manifest, f"{key} widens what the extension can do"
+    # One background script, for the label on the toolbar button.
+    background = manifest["background"]
+    assert background.get("service_worker", background.get("scripts")) in (
+        "background.js",
+        ["background.js"],
+    )
+    assert not background.get("persistent", False)
     for cs in manifest["content_scripts"]:
         assert cs["matches"] == NETFLIX
         assert not cs.get("all_frames", False)
@@ -93,12 +99,19 @@ def test_only_expected_network_destinations(path):
 
 
 CONTENT_HARNESS = r"""
-var listener = null, sent = [];
+var listener = null, sent = [], badges = [], statusChanged = null;
 globalThis.chrome = {
   storage: {local: {get: function () { return Promise.resolve({}); }},
             onChanged: {addListener: function () {}}},
-  runtime: {onMessage: {addListener: function (f) { listener = f; }}}};
+  runtime: {onMessage: {addListener: function (f) { listener = f; }},
+            sendMessage: function (m) { badges.push(m); return Promise.resolve(); }}};
 var STATUS = %s;
+globalThis.location = {pathname: "/watch/81484026"};
+globalThis.MutationObserver = function (f) { statusChanged = f; };
+MutationObserver.prototype.observe = function () {};
+globalThis.setInterval = function () {};
+globalThis.window = globalThis;
+globalThis.addEventListener = function () {};
 globalThis.document = {documentElement: {
   getAttribute: function (k) { return k === "data-surroundflix-status" ? STATUS : null; },
   setAttribute: function () {}}};
@@ -129,6 +142,152 @@ def test_content_script_filters_messages():
 def test_content_script_ignores_oversized_status():
     huge = json.dumps({"received": ["x" * 20000]})
     assert run_content_script(huge)[2]["sent"][0]["status"] is None
+
+
+BADGE_STEPS = r"""
+function label() { return badges.length ? badges[badges.length - 1].label : null; }
+var seen = [label()];
+[%s].forEach(function (step) {
+  if (step.path) location.pathname = step.path;
+  if ("status" in step) STATUS = step.status;
+  statusChanged();
+  seen.push(label());
+});
+console.log(JSON.stringify({seen: seen, count: badges.length}));
+"""
+
+
+def badge_labels(first, *steps):
+    content = build._fill(build._template("content.js"), {"INJECT": False})
+    harness = CONTENT_HARNESS.split("var answers")[0] % (json.dumps(first), content)
+    return json.loads(run_js(harness + BADGE_STEPS % ",".join(json.dumps(s) for s in steps)))
+
+
+@needs_node
+def test_badge_matches_received_audio():
+    atmos = json.dumps({"received": ["heaac-2-dash", "ddplus-5.1-dash", "ddplus-atmos-dash"]})
+    aac = json.dumps({"received": ["heaac-2-dash", "heaac-5.1-dash"]})
+    stereo = json.dumps({"received": ["heaac-2-dash"]})
+    out = badge_labels(None, {"status": atmos}, {"status": aac}, {"status": stereo})
+    assert out["seen"] == ["", "ATM", "5.1", ""]
+
+
+@needs_node
+def test_badge_only_on_watch_pages():
+    atmos = json.dumps({"received": ["ddplus-atmos-dash"]})
+    out = badge_labels(atmos, {"path": "/browse"}, {"path": "/browse"}, {"path": "/watch/1"})
+    assert out["seen"] == ["ATM", "", "", "ATM"]
+    assert out["count"] == 3  # nothing is sent when the label doesn't change
+
+
+@needs_node
+def test_badge_ignores_forged_status():
+    for forged in (
+        '{"received": "ddplus-atmos-dash"}',
+        '{"received": [5.1, {"a": 1}]}',
+        "not json",
+    ):
+        assert badge_labels(forged)["seen"] == [""]
+
+
+ATMOS = {"received": ["ddplus-atmos-dash"], "video": {"height": 2160}}
+STEREO = {"received": ["heaac-2-dash"], "video": {"height": 720}}
+
+
+def with_titles(titles):
+    return json.dumps({**STEREO, "titles": titles})
+
+
+@needs_node
+def test_status_follows_open_title():
+    status = with_titles({"1": ATMOS, "2": STEREO})
+    out = badge_labels(None, {"path": "/watch/1", "status": status}, {"path": "/watch/2"})
+    assert out["seen"] == ["", "ATM", ""]
+    # The latest manifest is another title's: nothing to report for this one.
+    other = json.dumps({**ATMOS, "title": "2", "titles": {"2": ATMOS}})
+    assert badge_labels(other, {"path": "/watch/3"})["seen"] == ["", ""]
+    # It came without an id: it stands in, as before.
+    latest = json.dumps({**ATMOS, "title": None, "titles": {"2": STEREO}})
+    assert badge_labels(latest, {"path": "/watch/3"})["seen"] == ["ATM", "ATM"]
+
+
+@needs_node
+def test_popup_gets_open_title():
+    harness = CONTENT_HARNESS.replace('"/watch/81484026"', '"/watch/1"')
+    content = build._fill(build._template("content.js"), {"INJECT": False})
+    code = harness % (json.dumps(with_titles({"1": ATMOS, "2": STEREO})), content)
+    reply = json.loads(run_js(code))[2]["sent"][0]
+    assert reply == {"active": True, "status": ATMOS}
+    # Outside the player, a trailer's manifest is not reported.
+    code = CONTENT_HARNESS.replace('"/watch/81484026"', '"/browse"') % (
+        json.dumps(json.dumps(ATMOS)),
+        content,
+    )
+    reply = json.loads(run_js(code))[2]["sent"][0]
+    assert reply == {"active": True, "status": {"received": None, "video": None}}
+
+
+@needs_node
+def test_forged_titles_ignored():
+    forgeries = [
+        '"x"',
+        "[1, 2]",
+        "null",
+        '{"1": "x"}',
+        '{"1": ["a"]}',
+        '{"1": null}',
+        '{"__proto__": {"received": []}}',
+    ]
+    for forged in forgeries:
+        status = '{"received": ["ddplus-atmos-dash"], "titles": ' + forged + "}"
+        assert badge_labels(None, {"path": "/watch/1", "status": status})["seen"] == ["", "ATM"]
+    # Fields of the wrong type are dropped, not passed on.
+    status = '{"received": ["ddplus-atmos-dash"], "titles": {"1": {"received": 123, "video": 456}}}'
+    assert badge_labels(None, {"path": "/watch/1", "status": status})["seen"] == ["", ""]
+    # A "__proto__" key stays an own key: nothing is polluted.
+    status = '{"received": ["heaac-2-dash"], "titles": {"__proto__": {"received": 1}}}'
+    content = build._fill(build._template("content.js"), {"INJECT": False})
+    code = (CONTENT_HARNESS % (json.dumps(status), content)).replace(
+        "console.log(JSON.stringify(answers));",
+        "console.log(JSON.stringify({answers: answers, leaked: ({}).received || null}));",
+    )
+    out = json.loads(run_js(code))
+    assert out["leaked"] is None
+    assert out["answers"][2]["sent"][0]["status"] == {"received": ["heaac-2-dash"]}
+
+
+BACKGROUND_HARNESS = r"""
+var listener = null, calls = [];
+globalThis.chrome = {
+  runtime: {onMessage: {addListener: function (f) { listener = f; }}},
+  action: {setBadgeBackgroundColor: function () { throw new Error("unsupported"); },
+           setBadgeText: function (d) { calls.push(d); return Promise.resolve(); }}};
+%s
+[%s].forEach(function (m) { listener(m[0], m[1]); });
+console.log(JSON.stringify(calls));
+"""
+
+
+@needs_node
+def test_background_only_sets_known_labels():
+    tab = {"tab": {"id": 7}}
+    messages = [
+        [{"type": "surroundflix-badge", "label": "ATM"}, tab],
+        [{"type": "surroundflix-badge", "label": "5.1"}, tab],
+        [{"type": "surroundflix-badge", "label": "<b>free money</b>"}, tab],
+        [{"type": "surroundflix-badge", "label": "ATM"}, {}],
+        [{"type": "surroundflix-status"}, tab],
+        [None, tab],
+    ]
+    code = BACKGROUND_HARNESS % (
+        build._template("background.js"),
+        ",".join(json.dumps(m) for m in messages),
+    )
+    assert json.loads(run_js(code)) == [
+        {"tabId": 7, "text": "ATM"},
+        {"tabId": 7, "text": "5.1"},
+        {"tabId": 7, "text": ""},
+    ]
 
 
 # Data from the page is untrusted ---------------------------------------------

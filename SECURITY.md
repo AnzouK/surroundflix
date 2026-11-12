@@ -14,7 +14,8 @@ Please don't open a public issue for an unpatched problem.
 
 ## In scope
 
-- The page hook, content script and popup (`src/surroundflix/templates/`):
+- The page hook, content script, background script and popup
+  (`src/surroundflix/templates/`):
   anything that lets a web page, another extension or Netflix's responses
   run code, inject HTML, or reach the extension's storage or messages.
 - The app window and its update check: anything that makes it open or
@@ -34,7 +35,8 @@ Please don't open a public issue for an unpatched problem.
 ## What protects users today
 
 - The extension asks for one permission, `storage`, and runs only on
-  `www.netflix.com`. It contacts no server.
+  `www.netflix.com`. It contacts no server. Its background script only
+  sets the label on the toolbar button, from a fixed list.
 - Data read from the page (the popup's choices passed through `<html>`
   attributes, Netflix's audio and video lists, title features) is treated
   as untrusted: only known values are used, and text is always inserted

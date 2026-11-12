@@ -36,7 +36,7 @@ def test_build_outputs(tmp_path):
         assert manifest["manifest_version"] == 3
         assert manifest["permissions"] == ["storage"]
         assert manifest["action"]["default_popup"] == "popup.html"
-        for f in ("content.js", "page.js", "popup.html", "popup.js", "popup.css"):
+        for f in ("background.js", "content.js", "page.js", "popup.html", "popup.js", "popup.css"):
             assert (ext / f).exists()
         for path in manifest["icons"].values():
             assert (ext / path).stat().st_size > 0

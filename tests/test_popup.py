@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from surroundflix import __version__
 from surroundflix.build import load_i18n, render_popup_script
 
 node = shutil.which("node")
@@ -93,7 +94,7 @@ globalThis.document = {
 """
 
 
-def run(search="", preset="atmos", storage=None, reply=None, then="", chrome=False):
+def run(search="", preset="atmos", storage=None, reply=None, then="", chrome=False, found="true"):
     code = FAKE_DOM % {
         "search": json.dumps(search),
         "dolby": "false" if chrome else "true",
@@ -105,8 +106,8 @@ def run(search="", preset="atmos", storage=None, reply=None, then="", chrome=Fal
             "globalThis.chrome = {storage: {local: {"
             f"get: function () {{ return Promise.resolve({json.dumps(storage or {})}); }},"
             " set: function (x) { Object.assign(saved, x); }}},"
-            " tabs: {query: function () {"
-            " return Promise.resolve([{id: 1, url: 'https://www.netflix.com/watch/1'}]); },"
+            " tabs: {query: function (q) {"
+            f" return Promise.resolve({found} ? [{{id: 1, url: 'https://www.netflix.com/watch/1'}}] : []); }},"
             f" sendMessage: function () {{ return Promise.resolve({json.dumps(reply)}); }},"
             " reload: function (id) { reloaded = id; return Promise.resolve(); }}};\n"
         )
@@ -119,8 +120,10 @@ setTimeout(function () {
     debugHidden: getEl("debug").hidden, copied: copied, result: getEl("debug-result").textContent,
     preset: getEl("preset-desc").textContent, video: getEl("tab-video").text(),
     rangeHidden: getEl("tab-range").hidden, codec: getEl("video-codec").value,
+    miss: getEl("tab-miss").hidden ? "" : getEl("tab-miss").textContent,
     checked: radios.filter(function (r) { return r.checked; }).map(function (r) { return r.value; }),
     disabled: radios.filter(function (r) { return r.disabled; }).map(function (r) { return r.value; }),
+    version: getEl("version").textContent,
     saved: saved, applyHidden: getEl("apply-now").hidden, reloaded: reloaded, closed: closed}));
 }, 50);
 """
@@ -128,9 +131,9 @@ setTimeout(function () {
     return json.loads(proc.stdout.strip().splitlines()[-1])
 
 
-def tab(min_height, max_height):
+def tab(min_height, max_height, **more):
     video = {"mode": "auto", "height": 1080, "bitrate": 5000, "codec": "h264"}
-    video.update(minHeight=min_height, maxHeight=max_height)
+    video.update(minHeight=min_height, maxHeight=max_height, **more)
     return {"active": True, "status": {"received": ["ddplus-5.1-dash"], "video": video}}
 
 
@@ -138,6 +141,10 @@ def test_demo_preview_outside_extension():
     out = run(search="?demo=atmos")
     assert "Dolby Atmos" in out["status"]
     assert "2160p" in out["video"] and out["rangeHidden"] is False
+
+
+def test_popup_shows_version():
+    assert run()["version"] == __version__
 
 
 def test_description_matches_default_preset():
@@ -234,3 +241,31 @@ def test_chrome_shows_5_1_only():
     assert out["preset"] == EN["pdesc_surround"]
     assert run(storage={"preset": "atmos"}, chrome=True)["checked"] == ["surround"]
     assert run(storage={"preset": "netflix"}, chrome=True)["checked"] == ["netflix"]
+
+
+def test_no_miss_when_matched():
+    assert (
+        run(reply=tab(720, 2160, mode="min2160", codecChoice="h264", codecs=["h264high"]))["miss"]
+        == ""
+    )
+    assert run(reply=tab(720, 1080))["miss"] == ""
+
+
+def test_quality_miss():
+    out = run(reply=tab(480, 1080, mode="min2160"))
+    assert out["miss"] == EN["tab_miss_quality"].replace("{wanted}", "4K").replace("{max}", "1080p")
+
+
+def test_codec_miss():
+    out = run(reply=tab(480, 1080, codecChoice="hevc", codecs=["h264high", "av1"]))
+    assert out["miss"] == EN["tab_miss_codec"].replace("{codec}", "HEVC")
+    forged = tab(480, 1080, codecChoice="<b>", codecs="hevc", mode="__proto__")
+    assert run(reply=forged)["miss"] == ""
+
+
+def test_tab_lookup_fallback():
+    # A Safari web app can return no tab for the current window.
+    out = run(storage={}, reply=tab(720, 2160), then=CHANGE_QUALITY, found="!q.currentWindow")
+    assert "5.1" in out["status"] and out["applyHidden"] is False
+    out = run(storage={}, reply=tab(720, 2160), found="false")
+    assert out["status"] == EN["tab_none"]

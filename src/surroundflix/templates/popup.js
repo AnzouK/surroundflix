@@ -4,6 +4,7 @@ var DEFAULT_PRESET = /*__SURROUNDFLIX_DEFAULT_PRESET__*/ "atmos";
 var CHECK_DOLBY = /*__SURROUNDFLIX_CHECK_DOLBY__*/ false;
 var DEFAULT_VIDEO_QUALITY = /*__SURROUNDFLIX_DEFAULT_VIDEO_QUALITY__*/ "auto";
 var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
+var VERSION = /*__SURROUNDFLIX_VERSION__*/ "0.0.0";
 
 (function () {
   "use strict";
@@ -14,6 +15,7 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
   var lang = pickLang(navigator.languages || [navigator.language]);
 
   applyI18n(document, lang);
+  document.getElementById("version").textContent = VERSION;
 
   function select(value) {
     var known = false;
@@ -134,6 +136,7 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
   var out = document.getElementById("tab-status");
   var videoOut = document.getElementById("tab-video");
   var rangeOut = document.getElementById("tab-range");
+  var missOut = document.getElementById("tab-miss");
 
   // Fills `node` with a translated sentence whose {name} part is in bold.
   function sentence(node, key, name, value) {
@@ -160,6 +163,9 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
       video.minHeight <= video.maxHeight;
     rangeOut.hidden = !hasRange;
     if (hasRange) rangeOut.textContent = t(lang, "tab_video_range", { min: Math.round(video.minHeight) + "p", max: Math.round(video.maxHeight) + "p" });
+    var misses = quality ? videoMisses(video) : [];
+    missOut.hidden = !misses.length;
+    missOut.textContent = misses.map(function (miss) { return t(lang, miss[0], miss[1]); }).join(" ");
   }
 
   // Everything a bug report needs, from this popup and from the page.
@@ -255,6 +261,21 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     sentence(out, "tab_best", "format", best);
   }
 
+  // The tab this popup was opened on. A Safari web app (Netflix added to the
+  // Dock) doesn't always report it as its window's active tab, so the next
+  // lookup is tried when one finds no tab at all.
+  var TAB_LOOKUPS = [{ active: true, currentWindow: true }, { active: true, lastFocusedWindow: true },
+    { active: true }];
+
+  function findTab(step) {
+    if (step >= TAB_LOOKUPS.length) return Promise.resolve(null);
+    return Promise.resolve(api.tabs.query(TAB_LOOKUPS[step])).then(function (tabs) {
+      return tabs && tabs[0] ? tabs[0] : findTab(step + 1);
+    }, function () {
+      return findTab(step + 1);
+    });
+  }
+
   // Preview in a normal browser: popup.html?demo=atmos|stereo|waiting|noaccess|none
   var demo = new URLSearchParams(location.search).get("demo");
   if (demo) {
@@ -268,8 +289,7 @@ var DEFAULT_VIDEO_CODEC = /*__SURROUNDFLIX_DEFAULT_VIDEO_CODEC__*/ "auto";
     }[demo] || null);
   } else {
     try {
-      Promise.resolve(api.tabs.query({ active: true, currentWindow: true })).then(function (tabs) {
-        var tab = tabs && tabs[0];
+      findTab(0).then(function (tab) {
         if (!tab) return null;
         return Promise.resolve(api.tabs.sendMessage(tab.id, { type: "surroundflix-status" }))
           .then(function (reply) {

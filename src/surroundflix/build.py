@@ -147,6 +147,7 @@ def render_popup_script(preset: str, check_dolby: bool) -> str:
             "CHECK_DOLBY": check_dolby,
             "DEFAULT_VIDEO_QUALITY": DEFAULT_VIDEO_MODE,
             "DEFAULT_VIDEO_CODEC": DEFAULT_VIDEO_CODEC,
+            "VERSION": __version__,
         },
     )
     return shared_js() + "\n" + popup
@@ -179,6 +180,12 @@ def render_manifest(chrome: bool = False) -> dict:
         # Only "storage", for the popup's choices. Runs on netflix.com only.
         "permissions": ["storage"],
     }
+    # Sets the label on the toolbar button, nothing else. Chrome only takes
+    # a service worker; Safari is more reliable with a non-persistent page.
+    if chrome:
+        manifest["background"] = {"service_worker": "background.js"}
+    else:
+        manifest["background"] = {"scripts": ["background.js"], "persistent": False}
     if chrome:
         manifest["content_scripts"] = [
             {"matches": [NETFLIX_MATCH], "js": ["content.js"], "run_at": "document_start"},
@@ -210,6 +217,7 @@ def _write_extension(ext_dir: Path, preset: str, debug: bool, chrome: bool) -> N
     (ext_dir / "content.js").write_text(
         _fill(_template("content.js"), {"INJECT": not chrome}), "utf-8"
     )
+    (ext_dir / "background.js").write_text(_template("background.js"), "utf-8")
     (ext_dir / "popup.html").write_text(_template("popup.html"), "utf-8")
     (ext_dir / "popup.css").write_text(_template("popup.css"), "utf-8")
     (ext_dir / "popup.js").write_text(render_popup_script(preset, check_dolby=chrome), "utf-8")

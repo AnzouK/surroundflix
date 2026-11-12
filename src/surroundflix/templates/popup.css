@@ -12,8 +12,13 @@ body {
   margin: 0; width: 300px; background: var(--bg); color: var(--text);
   font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
 }
-main { padding: 14px 16px; }
+/* Safari cuts a popup taller than its limit instead of scrolling it. */
+main { padding: 14px 16px; max-height: 500px; overflow-y: auto; }
 header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 15px; }
+header .version {
+  margin-left: auto; color: var(--muted); white-space: nowrap;
+  font-size: 12px; font-family: ui-monospace, Menlo, monospace;
+}
 fieldset { border: 1px solid var(--line); border-radius: 4px; margin: 0; padding: 8px 12px 10px; }
 legend {
   font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
@@ -31,6 +36,7 @@ select {
   border: 1px solid var(--line); border-radius: 4px; padding: 3px 4px;
 }
 .tab #tab-range { margin-top: 2px; }
+.tab #tab-miss { margin-top: 6px; }
 .warn { color: var(--text); border-left: 2px solid var(--accent); padding-left: 8px; }
 .tab { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .tab h2 {
