@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-12
+
 ### Added
 
 - The toolbar button shows "ATM" or "5.1" while the player is open on a
