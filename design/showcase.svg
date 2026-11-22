@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="940" height="726" viewBox="0 0 940 726" role="img" aria-label="Surroundflix app window and toolbar popup">
+<svg xmlns="http://www.w3.org/2000/svg" width="940" height="765" viewBox="0 0 940 765" role="img" aria-label="Surroundflix app window and toolbar popup">
 <style>
 .sf-frame { display: flex; gap: 28px; align-items: flex-start; justify-content: center;
   padding: 8px; font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
@@ -139,8 +139,28 @@
 .sf-popup button:hover { border-color: var(--muted); }
 .sf-popup button.apply { display: block; margin-top: 6px; }
 .sf-popup button[hidden] { display: none; }
+.sf-popup .history { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.sf-popup .history summary {
+  font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; cursor: pointer;
+}
+.sf-popup .history[open] summary { margin-bottom: 6px; }
+.sf-popup .history ol { list-style: none; margin: 0; padding: 0; }
+.sf-popup .history ol[hidden], .sf-popup .history .note[hidden] { display: none; }
+.sf-popup .history li { padding: 5px 0; border-top: 1px solid var(--line); }
+.sf-popup .history li:first-child { border-top: 0; padding-top: 0; }
+.sf-popup .history-head { display: flex; align-items: baseline; gap: 8px; }
+.sf-popup .history-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sf-popup .history-date, .sf-popup .history-detail { color: var(--muted); font-size: 12px; }
+.sf-popup .history-date { white-space: nowrap; }
+.sf-popup .history .note { margin: 0; }
+.sf-popup .history-tools {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line);
+}
+.sf-popup .history-tools label { padding: 0; font-size: 12px; align-items: center; }
 .sf-popup { margin: 0; } .sf-popup main { max-height: none; overflow: visible; } .sf-app .window { margin: 0 auto; }</style>
-<foreignObject x="0" y="0" width="940" height="726"><div xmlns="http://www.w3.org/1999/xhtml"><div class="sf-frame"><figure><div class="sf-window"><div class="sf-bar"><span class="sf-lights"><i></i><i></i><i></i></span>Surroundflix</div><div class="sf-app"><main class="window">
+<foreignObject x="0" y="0" width="940" height="765"><div xmlns="http://www.w3.org/1999/xhtml"><div class="sf-frame"><figure><div class="sf-window"><div class="sf-bar"><span class="sf-lights"><i></i><i></i><i></i></span>Surroundflix</div><div class="sf-app"><main class="window">
   <header>
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="64" height="64" aria-hidden="true">
   
@@ -246,5 +266,14 @@
       <span class="note" id="debug-result" aria-live="polite"></span>
     </p>
   </section>
+  <details class="history" id="history">
+    <summary data-i18n="history_heading">Recently watched</summary>
+    <ol id="history-list" hidden="hidden"></ol>
+    <p class="note" id="history-empty" data-i18n="history_empty">Titles you watch on Netflix appear here, saved only in this browser.</p>
+    <div class="history-tools">
+      <label><input type="checkbox" id="history-enabled" checked="checked"/> <span data-i18n="history_enabled">Keep a playback log</span></label>
+      <button type="button" id="history-clear" data-i18n="history_clear">Clear</button>
+    </div>
+  </details>
 </main></div></div><figcaption>Toolbar button in Safari</figcaption></figure></div></div></foreignObject>
 </svg>

@@ -308,6 +308,104 @@ var VERSION = /*__SURROUNDFLIX_VERSION__*/ "0.0.0";
     }
   }
 
+  // "Recently watched", from storage.local. Untrusted: only known values
+  // and short names are shown.
+  var historyList = document.getElementById("history-list");
+  var historyEmpty = document.getElementById("history-empty");
+  var historyEnabled = document.getElementById("history-enabled");
+  var HISTORY_MAX = 30;
+  var HISTORY_RANGES = ["dv", "hdr"];
+
+  function historyNumber(value, max) {
+    return plausible(value, max) ? value : null;
+  }
+
+  function historyEntry(raw) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    if (typeof raw.id !== "string" || !/^\d{1,12}$/.test(raw.id) || !plausible(raw.at, 1e14)) return null;
+    var audio = raw.audio === "stereo" ? t(lang, "history_stereo") : bestAudio([raw.audio]);
+    var name = typeof raw.name === "string" ? raw.name.replace(/[\u0000-\u001f\u007f-\u009f]/g, "").trim() : "";
+    var video = formatVideo({
+      height: historyNumber(raw.height, 10000),
+      codec: raw.codec,
+      dynamicRange: HISTORY_RANGES.indexOf(raw.hdr) === -1 ? null : raw.hdr,
+      bitrate: historyNumber(raw.bitrate, 1000000)
+    }, lang);
+    if (!audio && !video) return null;
+    return {
+      name: name && Array.from(name).length <= 80 ? name : t(lang, "history_title", { id: raw.id }),
+      date: new Date(raw.at),
+      detail: [audio, video].filter(Boolean).join(" \u00b7 ")
+    };
+  }
+
+  function shortDate(date) {
+    var options = { day: "numeric", month: "short" };
+    if (date.getFullYear() !== new Date().getFullYear()) options.year = "numeric";
+    try {
+      return date.toLocaleDateString(lang, options);
+    } catch (err) {
+      return "";
+    }
+  }
+
+  function showHistory(list) {
+    historyList.textContent = "";
+    var rows = 0;
+    var entries = Array.isArray(list) ? list.slice(0, HISTORY_MAX) : [];
+    entries.forEach(function (raw) {
+      var entry = historyEntry(raw);
+      if (!entry) return;
+      var row = document.createElement("li");
+      var head = document.createElement("div");
+      var name = document.createElement("span");
+      var date = document.createElement("span");
+      var detail = document.createElement("div");
+      head.className = "history-head";
+      name.className = "history-name";
+      date.className = "history-date";
+      detail.className = "history-detail";
+      name.textContent = entry.name;
+      date.textContent = shortDate(entry.date);
+      detail.textContent = entry.detail;
+      head.appendChild(name);
+      head.appendChild(date);
+      row.appendChild(head);
+      row.appendChild(detail);
+      historyList.appendChild(row);
+      rows++;
+    });
+    historyList.hidden = !rows;
+    historyEmpty.hidden = !!rows;
+  }
+
+  historyEnabled.addEventListener("change", function () {
+    store({ historyEnabled: historyEnabled.checked });
+  });
+  document.getElementById("history-clear").addEventListener("click", function () {
+    store({ history: [] });
+    showHistory([]);
+  });
+
+  if (demo === "atmos") {
+    var day = 86400000;
+    showHistory([
+      { id: "80100172", at: Date.now() - day, name: "Example Movie", audio: "ddplus-atmos-dash",
+        height: 2160, codec: "hevc", hdr: "dv", bitrate: 10400 },
+      { id: "81231974", at: Date.now() - 3 * day, name: "Example Series E4", audio: "ddplus-5.1-dash",
+        height: 1080, codec: "av1", bitrate: 3200 },
+      { id: "70305903", at: Date.now() - 6 * day, audio: "stereo", height: 720, codec: "h264high", bitrate: 1800 }
+    ]);
+  } else {
+    showHistory([]);
+    if (storage) try {
+      Promise.resolve(storage.get(["history", "historyEnabled"])).then(function (stored) {
+        historyEnabled.checked = !stored || stored.historyEnabled !== false;
+        showHistory(stored && stored.history);
+      }, function () {});
+    } catch (err) {}
+  }
+
   // Without Dolby support (Chrome), page.js asks for AAC 5.1 instead: there
   // is no Atmos, so "5.1 only" stands for what Surroundflix gets.
   var dolby = !CHECK_DOLBY;

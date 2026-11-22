@@ -43,6 +43,11 @@ Object.defineProperty(El.prototype, "value", {
     this._value = !this.children.length || known ? v : "";
   }
 });
+// Setting textContent drops the children, as in a browser.
+Object.defineProperty(El.prototype, "textContent", {
+  get: function () { return this._text; },
+  set: function (v) { this._text = v; this.children = []; }
+});
 El.prototype.appendChild = function (c) { c.parent = this; this.children.push(c); return c; };
 El.prototype.remove = function () {
   var self = this;
@@ -55,6 +60,9 @@ El.prototype.querySelectorAll = function () { return this.children.slice(); };
 El.prototype.getAttribute = function (k) { return this.attrs[k] || null; };
 El.prototype.text = function () {
   return this.textContent + this.children.map(function (c) { return c.textContent; }).join("");
+};
+El.prototype.deep = function () {
+  return [this.textContent].concat(this.children.map(function (c) { return c.deep(); })).join("|");
 };
 var els = {};
 function getEl(id) { return els[id] || (els[id] = new El(id)); }
@@ -124,6 +132,8 @@ setTimeout(function () {
     checked: radios.filter(function (r) { return r.checked; }).map(function (r) { return r.value; }),
     disabled: radios.filter(function (r) { return r.disabled; }).map(function (r) { return r.value; }),
     version: getEl("version").textContent,
+    history: getEl("history-list").children.map(function (r) { return r.deep(); }),
+    historyEmpty: !getEl("history-empty").hidden, logging: getEl("history-enabled").checked,
     saved: saved, applyHidden: getEl("apply-now").hidden, reloaded: reloaded, closed: closed}));
 }, 50);
 """
@@ -269,3 +279,68 @@ def test_tab_lookup_fallback():
     assert "5.1" in out["status"] and out["applyHidden"] is False
     out = run(storage={}, reply=tab(720, 2160), found="false")
     assert out["status"] == EN["tab_none"]
+
+
+DAY = 86400000
+LOG = [
+    {"id": "80100172", "at": 1.8e12, "name": "Example Movie", "audio": "ddplus-atmos-dash"},
+    {"id": "81231974", "at": 1.8e12 - DAY, "audio": "stereo", "height": 1080, "bitrate": 3200},
+]
+
+
+def history_rows(out):
+    """Each row as [name, detail], without the date."""
+    return [[r.split("|")[2], r.split("|")[-1]] for r in out["history"]]
+
+
+def test_history_rows():
+    out = run(storage={"history": LOG})
+    assert history_rows(out) == [
+        ["Example Movie", "Dolby Atmos"],
+        [EN["history_title"].replace("{id}", "81231974"), "Stereo \u00b7 1080p \u00b7 3.2 Mb/s"],
+    ]
+    assert out["historyEmpty"] is False and out["logging"] is True
+    assert all(r.split("|")[3] for r in out["history"])  # a date on each row
+
+
+def test_history_empty_state():
+    out = run(storage={})
+    assert out["history"] == [] and out["historyEmpty"] is True
+    assert run(storage={"history": "x"})["historyEmpty"] is True
+
+
+def test_history_ignores_forged_entries():
+    forged = [
+        "x",
+        None,
+        [1],
+        {"id": "<b>", "at": 1.8e12, "audio": "stereo"},
+        {"id": "1", "at": "today", "audio": "stereo"},
+        {"id": "2", "at": 1.8e12, "audio": "<b>", "codec": "<i>", "bitrate": 1e12},
+        {"id": "3", "at": 1.8e12, "audio": {"a": 1}},
+        {"id": "4", "at": 1.8e12, "audio": "stereo", "name": "x" * 81},
+        {"id": "5", "at": 1.8e12, "audio": "stereo", "name": ["Example"]},
+    ]
+    rows = history_rows(run(storage={"history": forged}))
+    assert [name for name, _ in rows] == [EN["history_title"].replace("{id}", n) for n in "45"]
+    many = [dict(LOG[0], id=str(n)) for n in range(1, 50)]
+    assert len(run(storage={"history": many})["history"]) == 30
+
+
+def test_history_clear():
+    out = run(storage={"history": LOG}, then='getEl("history-clear").onclick();')
+    assert out["saved"] == {"history": []}
+    assert out["history"] == [] and out["historyEmpty"] is True
+
+
+def test_history_toggle_saved():
+    out = run(storage={"historyEnabled": False})
+    assert out["logging"] is False
+    toggle = 'getEl("history-enabled").checked = true; getEl("history-enabled").onchange();'
+    out = run(storage={"historyEnabled": False}, then=toggle)
+    assert out["saved"] == {"historyEnabled": True}
+
+
+def test_history_demo_rows():
+    out = run(search="?demo=atmos")
+    assert len(out["history"]) == 3 and out["historyEmpty"] is False

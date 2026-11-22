@@ -6,7 +6,8 @@
  * This script passes the choices made in the popup to page.js through
  * attributes on <html>, and, in Safari, loads page.js into the page. Chrome
  * loads page.js itself (manifest "world": "MAIN"). It also tells the
- * background script which audio label to show on the toolbar button.
+ * background script which audio label to show on the toolbar button, and
+ * keeps the local playback log the popup shows under "Recently watched".
  */
 (function () {
   "use strict";
@@ -26,17 +27,32 @@
     if (typeof value === "string") root.setAttribute("data-surroundflix-codec", value);
   }
 
+  // Playback log, in storage.local only. Null until loaded, so a write
+  // never replaces entries it hasn't read.
+  var recent = null;
+  var historyEnabled = true;
+  var clearedId = null; // title playing when the log was cleared
+
   try {
-    Promise.resolve(api.storage.local.get(["preset", "videoQuality", "videoCodec"])).then(function (stored) {
-      setPreset(stored && stored.preset);
-      setVideo(stored && stored.videoQuality);
-      setCodec(stored && stored.videoCodec);
-    }, function () {});
+    Promise.resolve(api.storage.local.get(["preset", "videoQuality", "videoCodec", "historyEnabled", "history"]))
+      .then(function (stored) {
+        setPreset(stored && stored.preset);
+        setVideo(stored && stored.videoQuality);
+        setCodec(stored && stored.videoCodec);
+        historyEnabled = !stored || stored.historyEnabled !== false;
+        recent = cleanHistory(stored && stored.history);
+        recordHistory();
+      }, function () {});
     api.storage.onChanged.addListener(function (changes, area) {
       if (area !== "local") return;
       if (changes.preset) setPreset(changes.preset.newValue);
       if (changes.videoQuality) setVideo(changes.videoQuality.newValue);
       if (changes.videoCodec) setCodec(changes.videoCodec.newValue);
+      if (changes.historyEnabled) historyEnabled = changes.historyEnabled.newValue !== false;
+      if (changes.history && recent !== null) {
+        recent = cleanHistory(changes.history.newValue);
+        if (!recent.length) clearedId = watchId();
+      }
     });
   } catch (err) {}
 
@@ -96,8 +112,140 @@
     return "";
   }
 
+  var HISTORY_MAX = 30;
+  var HISTORY_WAIT = 10000; // ms between two writes for the same title
+  var HISTORY_SAME_VIEWING = 6 * 3600000;
+  var AUDIO_KEYS = ["ddplus-atmos-dash", "ddplus-5.1hq-dash", "ddplus-5.1-dash", "heaac-5.1-dash", "stereo"];
+  var CODEC_KEYS = ["h264", "h264main", "h264high", "hevc", "av1", "vp9"];
+  var HDR_KEYS = ["dv", "hdr"];
+  var FIELDS = ["audio", "height", "codec", "hdr", "bitrate", "name"];
+  var lastWrite = {};
+
+  function known(list, value) {
+    return typeof value === "string" && list.indexOf(value) !== -1 ? value : null;
+  }
+
+  function number(value, max) {
+    return typeof value === "number" && isFinite(value) && value >= 1 && value <= max ? Math.round(value) : null;
+  }
+
+  function cleanName(value) {
+    if (typeof value !== "string") return null;
+    var text = value.replace(/[\u0000-\u001f\u007f-\u009f]+/g, " ").replace(/\s+/g, " ").trim();
+    return text ? Array.from(text).slice(0, 80).join("") : null;
+  }
+
+  function cleanEntry(raw) {
+    if (!isPlainObject(raw) || typeof raw.id !== "string" || !/^\d{1,12}$/.test(raw.id)) return null;
+    var entry = {
+      id: raw.id,
+      at: number(raw.at, 1e14),
+      audio: known(AUDIO_KEYS, raw.audio),
+      height: number(raw.height, 10000),
+      codec: known(CODEC_KEYS, raw.codec),
+      hdr: known(HDR_KEYS, raw.hdr),
+      bitrate: number(raw.bitrate, 1000000)
+    };
+    var name = cleanName(raw.name);
+    if (name) entry.name = name;
+    return entry.at && (entry.audio || entry.height || entry.codec || entry.bitrate) ? entry : null;
+  }
+
+  function cleanHistory(list) {
+    var out = [], seen = {};
+    if (!Array.isArray(list)) return out;
+    for (var i = 0; i < list.length && out.length < HISTORY_MAX; i++) {
+      var entry = cleanEntry(list[i]);
+      if (entry && !seen[entry.id]) {
+        seen[entry.id] = true;
+        out.push(entry);
+      }
+    }
+    return out;
+  }
+
+  // The best audio profile, as the popup shows it, or "stereo".
+  function bestProfile(received) {
+    if (!Array.isArray(received)) return null;
+    for (var i = 0; i < AUDIO_KEYS.length - 1; i++) {
+      if (received.indexOf(AUDIO_KEYS[i]) !== -1) return AUDIO_KEYS[i];
+    }
+    for (var j = 0; j < received.length; j++) {
+      if (typeof received[j] === "string" && /^[a-z0-9.-]{1,40}-dash$/.test(received[j])) return "stereo";
+    }
+    return null;
+  }
+
+  // Only shown while the player's controls are. Series put the name,
+  // episode and episode title in separate nodes.
+  function playerTitle() {
+    try {
+      var node = document.querySelector && document.querySelector('[data-uia="video-title"]');
+      if (!node) return null;
+      var parts = [];
+      for (var i = 0; i < node.childNodes.length; i++) {
+        if (node.childNodes[i].nodeType === 8) continue; // comment
+        var text = node.childNodes[i].textContent;
+        if (text && text.trim()) parts.push(text);
+      }
+      return cleanName(parts.join(" "));
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function watchId() {
+    var m = /^\/watch\/(\d{1,12})(?:\/|$)/.exec(location.pathname);
+    return m ? m[1] : null;
+  }
+
+  function recordHistory() {
+    if (recent === null || !historyEnabled) return;
+    // Private windows share storage.local with normal ones: log nothing.
+    if (api.extension && api.extension.inIncognitoContext) return;
+    var id = watchId();
+    if (id !== clearedId) clearedId = null;
+    if (!id || clearedId) return;
+    var status = readStatus().status;
+    if (!status || (status.received == null && status.video == null)) return;
+    var video = isPlainObject(status.video) ? status.video : {};
+    var now = Date.now();
+    var fresh = cleanEntry({
+      id: id, at: now, audio: bestProfile(status.received), height: video.height,
+      codec: video.codec, hdr: video.dynamicRange, bitrate: video.bitrate, name: playerTitle()
+    });
+    if (!fresh) return;
+    var index = -1;
+    for (var i = 0; i < recent.length; i++) {
+      if (recent[i].id === id) index = i;
+    }
+    var old = index === -1 ? null : recent[index];
+    var changed = index !== 0;
+    if (old) {
+      // Same viewing (still first, within 6 hours): keep its date.
+      // Watched again later: today's date.
+      if (index === 0 && now - old.at < HISTORY_SAME_VIEWING) fresh.at = old.at;
+      for (var f = 0; f < FIELDS.length; f++) {
+        var key = FIELDS[f];
+        if (fresh[key] == null && old[key] != null) fresh[key] = old[key];
+        if (fresh[key] !== old[key]) changed = true;
+      }
+    }
+    if (!changed || (lastWrite[id] && now - lastWrite[id] < HISTORY_WAIT)) return;
+    lastWrite[id] = now;
+    var next = [fresh];
+    for (var j = 0; j < recent.length && next.length < HISTORY_MAX; j++) {
+      if (j !== index) next.push(recent[j]);
+    }
+    recent = next;
+    try {
+      Promise.resolve(api.storage.local.set({ history: next })).then(null, function () {});
+    } catch (err) {}
+  }
+
   var shownLabel = null;
   function updateBadge() {
+    recordHistory();
     var label = badgeLabel();
     if (label === shownLabel) return;
     shownLabel = label;

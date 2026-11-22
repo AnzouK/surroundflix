@@ -86,7 +86,13 @@
       "debug_copy": "Copy debug info",
       "debug_copied": "Copied. Paste it into your bug report.",
       "debug_failed": "Couldn't copy.",
-      "apply_now": "Reload Netflix to apply now"
+      "apply_now": "Reload Netflix to apply now",
+      "history_heading": "Recently watched",
+      "history_empty": "Titles you watch on Netflix appear here, saved only in this browser.",
+      "history_enabled": "Keep a playback log",
+      "history_clear": "Clear",
+      "history_title": "Title {id}",
+      "history_stereo": "Stereo"
     },
     "fr": {
       "status_checking": "Vérification de Safari…",
@@ -162,7 +168,13 @@
       "debug_copy": "Copier les infos de diagnostic",
       "debug_copied": "Copiées. Collez-les dans votre rapport de bug.",
       "debug_failed": "Copie impossible.",
-      "apply_now": "Recharger Netflix pour appliquer"
+      "apply_now": "Recharger Netflix pour appliquer",
+      "history_heading": "Regardés récemment",
+      "history_empty": "Les titres que vous regardez sur Netflix s'affichent ici, enregistrés uniquement dans ce navigateur.",
+      "history_enabled": "Garder un historique de lecture",
+      "history_clear": "Effacer",
+      "history_title": "Titre {id}",
+      "history_stereo": "Stéréo"
     },
     "pt-PT": {
       "status_checking": "A verificar o Safari…",
@@ -238,7 +250,13 @@
       "debug_copy": "Copiar informação de diagnóstico",
       "debug_copied": "Copiada. Cole-a no seu relatório de erro.",
       "debug_failed": "Não foi possível copiar.",
-      "apply_now": "Recarregar a Netflix para aplicar"
+      "apply_now": "Recarregar a Netflix para aplicar",
+      "history_heading": "Vistos recentemente",
+      "history_empty": "Os títulos que reproduzir na Netflix aparecem aqui, guardados só neste navegador.",
+      "history_enabled": "Guardar um registo de reprodução",
+      "history_clear": "Limpar",
+      "history_title": "Título {id}",
+      "history_stereo": "Estéreo"
     },
     "pt-BR": {
       "status_checking": "Verificando o Safari…",
@@ -314,7 +332,13 @@
       "debug_copy": "Copiar informações de diagnóstico",
       "debug_copied": "Copiadas. Cole no seu relatório de bug.",
       "debug_failed": "Não foi possível copiar.",
-      "apply_now": "Recarregar a Netflix para aplicar"
+      "apply_now": "Recarregar a Netflix para aplicar",
+      "history_heading": "Assistidos recentemente",
+      "history_empty": "Os títulos que você assistir na Netflix aparecem aqui, salvos só neste navegador.",
+      "history_enabled": "Manter um histórico de reprodução",
+      "history_clear": "Limpar",
+      "history_title": "Título {id}",
+      "history_stereo": "Estéreo"
     },
     "pt-AO": {
       "status_checking": "A verificar o Safari…",
@@ -390,7 +414,13 @@
       "debug_copy": "Copiar informação de diagnóstico",
       "debug_copied": "Copiada. Cole-a no seu relatório de erro.",
       "debug_failed": "Não foi possível copiar.",
-      "apply_now": "Recarregar a Netflix para aplicar"
+      "apply_now": "Recarregar a Netflix para aplicar",
+      "history_heading": "Vistos recentemente",
+      "history_empty": "Os títulos que puser a tocar na Netflix aparecem aqui, guardados só neste navegador.",
+      "history_enabled": "Guardar um registo de reprodução",
+      "history_clear": "Limpar",
+      "history_title": "Título {id}",
+      "history_stereo": "Estéreo"
     }
   }
 }

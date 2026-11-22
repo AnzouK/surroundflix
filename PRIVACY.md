@@ -9,9 +9,16 @@ tracking and no cookies.
   audio formats to the request Netflix's own player sends to Netflix, trim
   the list of video streams if you picked a video quality or codec, and add the
   Atmos, 5.1 and 4K badges to Netflix's title pages.
-- The extension stores three settings in your browser's extension storage:
-  your audio choice ("5.1 and Atmos" or "5.1 only"), your video quality
-  and your preferred codec. They never leave your computer.
+- The extension stores your settings in your browser's extension storage:
+  your audio choice, your video quality, your preferred codec and whether
+  to keep a playback log. They never leave your computer.
+- "Recently watched" in the popup keeps a log of the last 30 titles you
+  played: the title's Netflix number, its name when the player shows it,
+  the date and time, and the audio and video Netflix sent. It is stored in
+  the same extension storage, never sent anywhere, and you can turn it off
+  or clear it in the popup. Removing the extension deletes it. Nothing is
+  logged in private windows. The log belongs to the browser, so everyone
+  using it sees the same list, whatever their Netflix profile.
 - "On this tab" in the popup reads the audio formats and the video quality
   Netflix sent for the current title, and the badges come from the title
   features Netflix already sends to the page. That information stays in
@@ -19,8 +26,8 @@ tracking and no cookies.
 - "Copy debug info" copies the audio and video details shown for the
   current tab, your three settings and your browser's user agent to your
   clipboard. Nothing is sent: you choose where to paste it.
-- They read nothing else: no viewing history, no account details, no
-  other site.
+- They read nothing else: no Netflix viewing history, no account details,
+  no other site.
 
 ## The macOS app
 

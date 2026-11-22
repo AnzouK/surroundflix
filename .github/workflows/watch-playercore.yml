@@ -1,6 +1,12 @@
 # Daily check that Netflix's player still knows the profile names
-# Surroundflix asks for. A missing name opens one issue. A failed download
-# (Netflix often blocks CI runners) only fails the job.
+# Surroundflix asks for. When a name is missing and the player has a close
+# new name for it, the job renames it, runs the tests and opens a pull
+# request; otherwise it opens one issue. A failed download (Netflix often
+# blocks CI runners) only fails the job.
+#
+# Opening pull requests needs "Allow GitHub Actions to create and approve
+# pull requests" (Settings > Actions > General). Without it, an issue is
+# opened instead.
 #
 # If the playercore URL can't be found, set the repository variable
 # PLAYERCORE_URL to one copied from the browser's Network tab.
@@ -16,14 +22,16 @@ concurrency:
   group: watch-playercore
   cancel-in-progress: false
 
-permissions:
-  contents: read
-  issues: write
+permissions: {}
 
 jobs:
   watch:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -48,10 +56,101 @@ jobs:
           echo "status=$status" >> "$GITHUB_OUTPUT"
           cat report.json
 
-      - name: Report a missing profile
+      - name: Rename the missing profiles
+        id: fix
         if: steps.check.outputs.status == '1'
+        run: |
+          set +e
+          surroundflix fix-profiles --report report.json > fix.txt 2>&1
+          status=$?
+          cat fix.txt
+          # 0: every missing name renamed, 2: some are left for a person.
+          if [ "$status" = 0 ] || [ "$status" = 2 ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+          if [ "$status" = 2 ]; then echo "partial=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Test the renamed profiles
+        id: tests
+        if: steps.fix.outputs.changed == 'true'
+        run: |
+          set +e
+          { pip install -e ".[dev]" && pytest -q; } > pytest.txt 2>&1
+          status=$?
+          tail -n 40 pytest.txt > pytest-tail.txt
+          cat pytest-tail.txt
+          if [ "$status" = 0 ]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open a pull request
+        id: pr
+        if: steps.tests.outputs.passed == 'true'
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(jq -r '.version // empty' report.json)
+          [[ "$version" =~ ^[0-9]+(\.[0-9]+)*$ ]] || version=""
+          url=$(jq -r '.url // "unknown"' report.json | tr -d '`')
+          branch="watch/profiles-${version:-$(date -u +%Y-%m-%d)}"
+          {
+            echo "The daily check found profile names missing from Netflix's player and renamed them to the closest names the player has (old -> new):"
+            echo
+            echo '```'
+            cat fix.txt
+            echo '```'
+            echo
+            echo "- Playercore: \`$url\`"
+            echo "- Version: ${version:-unknown}"
+            echo "- Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+            echo
+            echo "pytest passed in this run."
+            echo
+            echo "Pull requests opened by GitHub Actions don't start CI: close and reopen this one to run it."
+          } > pr.md
+          open=$(gh pr list --state open --json number,headRefName,isCrossRepository \
+            --jq '[.[] | select(.isCrossRepository == false and (.headRefName | startswith("watch/profiles-")))][0].number // empty')
+          if [ -n "$open" ]; then
+            {
+              echo "A later run found the renames below. Nothing was pushed to this branch:"
+              echo "merge or close this pull request, and the next run will open a new one."
+              echo
+              cat pr.md
+            } > comment.md
+            gh pr comment "$open" --body-file comment.md
+          else
+            auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+            echo "::add-mask::$auth"
+            header="AUTHORIZATION: basic $auth"
+            # A branch left by an earlier run (PR closed, or not allowed to open).
+            if git -c http.https://github.com/.extraheader="$header" \
+              ls-remote --exit-code --heads origin "$branch" > /dev/null; then
+              branch="$branch-$GITHUB_RUN_ID"
+            fi
+            git config user.name "github-actions[bot]"
+            git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+            git switch -c "$branch"
+            git add src/surroundflix/profiles.py src/surroundflix/templates/page.js
+            git commit -m "fix(profiles): follow Netflix's renamed profiles"
+            git -c http.https://github.com/.extraheader="$header" \
+              push origin "HEAD:refs/heads/$branch"
+            if ! gh pr create --base "$GITHUB_REF_NAME" --head "$branch" \
+              --title "fix(profiles): follow Netflix's renamed profiles" --body-file pr.md; then
+              git -c http.https://github.com/.extraheader="$header" \
+                push origin --delete "$branch" || true
+              exit 1
+            fi
+          fi
+          echo "done=true" >> "$GITHUB_OUTPUT"
+
+      - name: Report a missing profile
+        if: ${{ !cancelled() && steps.check.outputs.status == '1' && (steps.pr.outputs.done != 'true' || steps.fix.outputs.partial == 'true') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTS_PASSED: ${{ steps.tests.outputs.passed }}
+          PR_OUTCOME: ${{ steps.pr.outcome }}
+          PARTIAL: ${{ steps.fix.outputs.partial }}
         run: |
           title="Netflix's player no longer lists a profile Surroundflix uses"
           {
@@ -60,6 +159,32 @@ jobs:
             echo '```json'
             cat report.json
             echo '```'
+            if [ -s fix.txt ]; then
+              echo
+              echo "Automatic rename:"
+              echo
+              echo '```'
+              cat fix.txt
+              echo '```'
+            fi
+            if [ "$PARTIAL" = true ] && [ "$PR_OUTCOME" = success ]; then
+              echo
+              echo "A pull request renames the names it could; the others above need a person."
+            fi
+            if [ "$TESTS_PASSED" = false ]; then
+              echo
+              echo "The tests failed after the rename, so no pull request was opened. End of the pytest output:"
+              echo
+              echo '```'
+              cat pytest-tail.txt
+              echo '```'
+            fi
+            if [ "$PR_OUTCOME" = failure ]; then
+              echo
+              echo "The tests passed after the rename, but opening the pull request failed."
+            fi
+            echo
+            echo "Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           } > body.md
           open=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number')
           if [ -n "$open" ]; then
