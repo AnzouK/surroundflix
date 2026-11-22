@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- "Recently watched" in the popup lists the last 30 titles you played on
+  Netflix with the audio and video Netflix sent. It stays in this browser,
+  and you can turn it off or clear it.
+- When Netflix renames a profile Surroundflix asks for, the daily check
+  opens a pull request with the new name after the tests pass, instead of
+  only an issue.
+
+### Fixed
+
+- `surroundflix check` matches whole profile names, so a renamed profile
+  that only adds a suffix to the old name is no longer missed.
+
 ## [1.3.0] - 2026-11-12
 
 ### Added

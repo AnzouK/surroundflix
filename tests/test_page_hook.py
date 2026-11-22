@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 from surroundflix.build import render_page_script
-from surroundflix.profiles import NO_DOLBY_PROFILES, PRESETS
+from surroundflix.profiles import H264_MAIN, NO_DOLBY_PROFILES, PRESETS
 
 node = shutil.which("node")
 pytestmark = pytest.mark.skipif(node is None, reason="node is not installed")
@@ -404,13 +404,8 @@ def test_h264_main_added_from_high():
     out.requestedVideo = window.__surroundflix.requestedVideo;
     """
     out = run(extra=extra, codec="h264main")
-    assert out["requestedVideo"] == [
-        "playready-h264mpl30-dash",
-        "playready-h264mpl40-dash",
-        "h264mpl30-dash-playready-prk-qc",
-        "h264mpl31-dash-playready-prk-qc",
-        "h264mpl40-dash-playready-prk-qc",
-    ]
+    # The Main versions of the two High profiles, then the -prk-qc encodes.
+    assert out["requestedVideo"] == [H264_MAIN[0], H264_MAIN[2], *H264_MAIN[3:]]
     assert "playready-h264hpl40-dash" not in out["request"]
     assert "av1-main-L40-dash-cbcs-prk" not in out["request"]
 

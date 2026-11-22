@@ -10,7 +10,7 @@ import pytest
 
 from surroundflix import build, package, playercore
 from surroundflix.cli import main
-from surroundflix.profiles import EXPECTED_IN_PLAYERCORE
+from surroundflix.profiles import DDPLUS_ATMOS, EXPECTED_IN_PLAYERCORE, H264_MAIN
 
 
 def test_presets_command(capsys):
@@ -312,3 +312,104 @@ def test_unsatisfiable_range_starts_over(monkeypatch):
     monkeypatch.setattr(playercore, "_open", shrunk)
     assert main(["check", "--url", "https://assets.nflxext.com/x/cadmium-playercore-6.0.js"]) == 0
     assert ranges == [None, "bytes=40-", None]
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+# Names come from profiles.py so these tests still pass after a rename.
+OLD = H264_MAIN[-1]
+NEW = OLD + "-v2"
+
+
+def _fix_root(tmp_path):
+    """A copy of the two files fix-profiles may change, under tmp_path."""
+    for rel in ("src/surroundflix/profiles.py", "src/surroundflix/templates/page.js"):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text((REPO_ROOT / rel).read_text())
+    return tmp_path
+
+
+def _fix(tmp_path, suggestions, missing=None):
+    report = tmp_path / "report.json"
+    missing = list(suggestions) if missing is None else missing
+    report.write_text(json.dumps({"missing": missing, "suggestions": suggestions}))
+    return main(["fix-profiles", "--report", str(report), "--root", str(tmp_path)])
+
+
+def test_fix_profiles_renames_quoted(tmp_path, capsys):
+    root = _fix_root(tmp_path)
+    page = root / "src/surroundflix/templates/page.js"
+    page.write_text(page.read_text() + f"\n// {OLD}\nvar x = 'x{OLD}';\n")
+    assert _fix(root, {OLD: NEW}) == 0
+    profiles = (root / "src/surroundflix/profiles.py").read_text()
+    assert f'"{NEW}"' in profiles and f'"{OLD}"' not in profiles
+    js = page.read_text()
+    assert f'"{NEW}"' in js and f'"{OLD}"' not in js
+    assert f"// {OLD}\n" in js and f"'x{OLD}'" in js  # only exact quoted literals
+    assert f'"{H264_MAIN[3]}"' in js
+    out = capsys.readouterr().out
+    assert f"{OLD} -> {NEW}" in out and "page.js: 1 replaced" in out
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        NEW + '"; import os; "',
+        "../../etc/passwd-dash",
+        EXPECTED_IN_PLAYERCORE[0],
+        "x" * 70 + "-dash",
+        5,
+        [],
+    ],
+)
+def test_fix_profiles_refuses_invalid(tmp_path, capsys, bad):
+    root = _fix_root(tmp_path)
+    before = (root / "src/surroundflix/profiles.py").read_text()
+    assert _fix(root, {OLD: bad}) == 1
+    assert (root / "src/surroundflix/profiles.py").read_text() == before
+    assert "refusing" in capsys.readouterr().err
+
+
+def test_fix_profiles_refuses_unknown_old(tmp_path, capsys):
+    root = _fix_root(tmp_path)
+    assert _fix(root, {"ddplus-2.0-dash": "ddplus-2.0hq-dash"}) == 1
+    assert "not a name Surroundflix checks" in capsys.readouterr().err
+
+
+def test_fix_profiles_nothing_to_do(tmp_path, capsys):
+    root = _fix_root(tmp_path)
+    assert _fix(root, {OLD: None}) == 1
+    assert "Nothing was renamed" in capsys.readouterr().out
+
+
+def test_fix_profiles_skips_name_used_elsewhere(tmp_path, capsys):
+    root = _fix_root(tmp_path)
+    (root / "src/surroundflix/templates/content.js").write_text(f'x = "{DDPLUS_ATMOS}";')
+    assert _fix(root, {DDPLUS_ATMOS: DDPLUS_ATMOS + "-v2"}) == 1
+    assert "also used in content.js" in capsys.readouterr().out
+    assert f'"{DDPLUS_ATMOS}"' in (root / "src/surroundflix/profiles.py").read_text()
+
+
+def test_fix_profiles_partial(tmp_path, capsys):
+    root = _fix_root(tmp_path)
+    assert _fix(root, {OLD: NEW, DDPLUS_ATMOS: None}) == 2
+    assert f'"{NEW}"' in (root / "src/surroundflix/profiles.py").read_text()
+    assert "no likely new name" in capsys.readouterr().out
+
+
+def test_fix_profiles_refuses_same_target(tmp_path, capsys):
+    root = _fix_root(tmp_path)
+    other = next(n for n in H264_MAIN if n != OLD)
+    assert _fix(root, {OLD: NEW, other: NEW}) == 1
+    assert "refusing" in capsys.readouterr().err
+
+
+def test_fix_profiles_needs_files(tmp_path, capsys):
+    assert _fix(tmp_path, {OLD: NEW}) == 1
+    assert "not found" in capsys.readouterr().err
+
+
+def test_check_json_has_suggestions(tmp_path, capsys):
+    core = tmp_path / "cadmium-playercore-6.4.js"
+    core.write_text(" ".join(f'"{n}"' for n in EXPECTED_IN_PLAYERCORE).replace(OLD, NEW))
+    assert main(["check", "--file", str(core), "--json"]) == 1
+    assert json.loads(capsys.readouterr().out)["suggestions"] == {OLD: NEW}

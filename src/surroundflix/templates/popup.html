@@ -59,6 +59,15 @@
       <span class="note" id="debug-result" aria-live="polite"></span>
     </p>
   </section>
+  <details class="history" id="history">
+    <summary data-i18n="history_heading"></summary>
+    <ol id="history-list" hidden></ol>
+    <p class="note" id="history-empty" data-i18n="history_empty"></p>
+    <div class="history-tools">
+      <label><input type="checkbox" id="history-enabled" checked> <span data-i18n="history_enabled"></span></label>
+      <button type="button" id="history-clear" data-i18n="history_clear"></button>
+    </div>
+  </details>
 </main>
 <script src="popup.js"></script>
 </body>

@@ -125,6 +125,14 @@ While the player is open, the toolbar button itself shows **ATM** or
 **5.1** when Netflix sent Atmos or 5.1 for the title, so you can tell
 without opening the popup.
 
+### Recently watched
+
+A folded section of the popup lists the last 30 titles you played, with
+the date and what Netflix sent for each: audio, resolution, codec, HDR and
+bitrate. It is kept in the extension's storage on your computer only; a
+checkbox turns it off and a button clears it. Private windows are never
+logged.
+
 ### Title badges
 
 Netflix sends the features of every title (Atmos, 5.1, 4K...) to its web
@@ -310,9 +318,17 @@ Branches, commit messages, translations and releases are described in
 `.github/workflows/watch-playercore.yml` runs once a day. It downloads
 Netflix's current player and checks that the profile names Surroundflix
 adds are still in it: the Dolby and AAC 5.1 audio profiles, and the H.264
-Main video profiles. If one is gone, it opens an issue (or comments on the
-open one). The other video codecs aren't watched, since Surroundflix only
-keeps the ones your browser already asks for. That's all it can see: a change in the request or response
+Main video profiles. Names are matched whole, so a rename that only adds a
+suffix still counts as missing.
+
+If a name is gone, the job looks in the player for its likely new name: a
+single close match from the same family, keeping the same numbers. When
+the name is only used in `profiles.py` and `page.js`, it makes the change,
+runs the tests and opens a pull request (pull requests opened by GitHub
+Actions don't start CI: close and reopen it to run it). Otherwise, or when
+the tests fail, it opens an issue with the suggested name (or comments on
+the open one). The other video codecs aren't watched, since Surroundflix
+only keeps the ones your browser already asks for. That's all it can see: a change in the request or response
 format, in Netflix's pages (badges), or in what the servers send back goes
 unnoticed until someone reports it.
 

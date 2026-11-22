@@ -426,3 +426,212 @@ def test_playercore_redirects_are_checked(target):
 )
 def test_playercore_accepts_netflix_hosts(url):
     assert playercore.validate_url(url) == url
+
+
+# Playback log (content.js) -----------------------------------------------------
+
+HISTORY_HARNESS = r"""
+var statusChanged = null, writes = [], changed = null;
+var STORED = %(stored)s, STATUS = null, TITLE = null, NOW = 1.8e12, PRIVATE = false;
+Date.now = function () { return NOW; };
+globalThis.chrome = {
+  storage: {local: {get: function () { return Promise.resolve(STORED); },
+                    set: function (x) { writes.push(x.history); return Promise.resolve(); }},
+            onChanged: {addListener: function (f) { changed = f; }}},
+  extension: {get inIncognitoContext() { return PRIVATE; }},
+  runtime: {onMessage: {addListener: function () {}},
+            sendMessage: function () { return Promise.resolve(); }}};
+globalThis.location = {pathname: "/watch/1"};
+globalThis.MutationObserver = function (f) { statusChanged = f; };
+MutationObserver.prototype.observe = function () {};
+globalThis.setInterval = function () {};
+globalThis.window = globalThis;
+globalThis.addEventListener = function () {};
+globalThis.document = {
+  documentElement: {
+    getAttribute: function (k) { return k === "data-surroundflix-status" ? STATUS : null; },
+    setAttribute: function () {}},
+  querySelector: function (s) {
+    if (s !== '[data-uia="video-title"]' || TITLE === null) return null;
+    return {childNodes: TITLE.map(function (t) { return {textContent: t}; })};
+  }};
+%(content)s
+setTimeout(function () {
+  [%(steps)s].forEach(function (step) {
+    if (step.path) location.pathname = step.path;
+    if ("status" in step) STATUS = step.status === null ? null : JSON.stringify(step.status);
+    if ("title" in step) TITLE = step.title;
+    if (step.wait) NOW += step.wait;
+    if ("enabled" in step) changed({historyEnabled: {newValue: step.enabled}}, "local");
+    if (step.clear) changed({history: {newValue: []}}, "local");
+    if ("private" in step) PRIVATE = step.private;
+    statusChanged();
+  });
+  console.log(JSON.stringify(writes));
+}, 10);
+"""
+
+ATMOS_4K = {
+    "received": ["heaac-2-dash", "ddplus-5.1-dash", "ddplus-atmos-dash"],
+    "video": {"height": 2160, "codec": "hevc", "dynamicRange": "dv", "bitrate": 10400},
+}
+
+
+def history_writes(*steps, stored=None):
+    content = build._fill(build._template("content.js"), {"INJECT": False})
+    code = HISTORY_HARNESS % {
+        "stored": json.dumps(stored or {}),
+        "content": content,
+        "steps": ",".join(json.dumps(s) for s in steps),
+    }
+    return json.loads(run_js(code))
+
+
+def logged(title_id, at=1.8e12, **fields):
+    entry = dict.fromkeys(["audio", "height", "codec", "hdr", "bitrate"])
+    return {"id": title_id, "at": at, **entry, **fields}
+
+
+@needs_node
+def test_history_records_title():
+    writes = history_writes({"status": ATMOS_4K, "title": ["  Example\nSeries ", "   ", "E1"]})
+    assert writes == [
+        [
+            {
+                "id": "1",
+                "at": 1800000000000,
+                "audio": "ddplus-atmos-dash",
+                "height": 2160,
+                "codec": "hevc",
+                "hdr": "dv",
+                "bitrate": 10400,
+                "name": "Example Series E1",
+            }
+        ]
+    ]
+
+
+@needs_node
+def test_history_stereo_and_no_name():
+    writes = history_writes({"status": {"received": ["heaac-2-dash"]}})
+    assert writes == [[logged("1", audio="stereo")]]
+
+
+@needs_node
+def test_history_skips_without_title():
+    assert history_writes({"path": "/browse", "status": ATMOS_4K}) == []
+    assert history_writes({"status": None}) == []
+    assert history_writes({"status": {"received": None, "video": None}}) == []
+    # Another title's manifest is not this one's.
+    other = {**ATMOS_4K, "title": "2", "titles": {"2": ATMOS_4K}}
+    assert history_writes({"status": other}) == []
+
+
+@needs_node
+def test_history_disabled():
+    assert history_writes({"status": ATMOS_4K}, stored={"historyEnabled": False}) == []
+    writes = history_writes({"enabled": False, "status": ATMOS_4K})
+    assert writes == []
+
+
+@needs_node
+def test_history_watched_again_moves_up_with_new_date():
+    stored = {"history": [logged("2", audio="stereo"), logged("1", at=1.7e12, audio="stereo")]}
+    writes = history_writes({"status": ATMOS_4K}, stored=stored)
+    assert [e["id"] for e in writes[-1]] == ["1", "2"]
+    assert writes[-1][0]["at"] == 1.8e12 and writes[-1][0]["audio"] == "ddplus-atmos-dash"
+
+
+@needs_node
+def test_history_same_viewing_keeps_date():
+    stored = {"history": [logged("1", at=1.8e12 - 60000, audio="stereo")]}
+    writes = history_writes({"status": ATMOS_4K}, stored=stored)
+    assert writes[-1][0]["at"] == 1.8e12 - 60000
+    assert writes[-1][0]["audio"] == "ddplus-atmos-dash"
+
+
+@needs_node
+def test_history_last_title_watched_days_later():
+    stored = {"history": [logged("1", at=1.7e12, audio="stereo")]}
+    writes = history_writes({"status": ATMOS_4K}, stored=stored)
+    assert writes[-1][0]["at"] == 1.8e12
+
+
+@needs_node
+def test_history_private_window():
+    assert history_writes({"private": True, "status": ATMOS_4K}) == []
+
+
+@needs_node
+def test_history_clear_while_playing():
+    atmos = {"audio": "ddplus-atmos-dash", "height": 2160, "codec": "hevc", "hdr": "dv"}
+    writes = history_writes(
+        {"status": ATMOS_4K}, {"clear": True, "wait": 30000}, {"path": "/watch/2"}
+    )
+    # The title playing when the log was cleared isn't added back, the next one is.
+    assert writes == [
+        [logged("1", bitrate=10400, **atmos)],
+        [logged("2", at=1.8e12 + 30000, bitrate=10400, **atmos)],
+    ]
+
+
+@needs_node
+def test_history_video_only():
+    writes = history_writes({"status": {"received": None, "video": {"height": 720}}})
+    assert writes == [[logged("1", height=720)]]
+
+
+@needs_node
+def test_history_writes_only_changes():
+    stored = {"history": [logged("1", audio="ddplus-atmos-dash", height=2160, codec="hevc")]}
+    stored["history"][0].update(hdr="dv", bitrate=10400)
+    assert history_writes({"status": ATMOS_4K}, {"wait": 30000}, stored=stored) == []
+    # A name seen once is kept when the controls hide it again.
+    writes = history_writes(
+        {"status": ATMOS_4K, "title": ["Example"]}, {"title": None, "wait": 30000}
+    )
+    assert len(writes) == 1 and writes[0][0]["name"] == "Example"
+
+
+@needs_node
+def test_history_cap():
+    stored = {"history": [logged(str(n), audio="stereo") for n in range(100, 140)]}
+    writes = history_writes({"status": ATMOS_4K}, stored=stored)
+    assert len(writes[0]) == 30 and writes[0][0]["id"] == "1"
+    assert writes[0][-1]["id"] == "128"
+
+
+@needs_node
+def test_history_drops_forged_values():
+    forged = {
+        "received": [5.1, {"a": 1}],
+        "video": {
+            "height": 1e9,
+            "codec": "<b>",
+            "dynamicRange": "__proto__",
+            "bitrate": "5000",
+        },
+    }
+    assert history_writes({"status": forged}) == []
+    forged["video"]["bitrate"] = 5000
+    writes = history_writes({"status": forged, "title": ["x" * 500]})
+    assert writes == [[logged("1", bitrate=5000, name="x" * 80)]]
+    junk = [
+        "x",
+        None,
+        {"id": "1e3", "at": 1.8e12, "audio": "stereo"},
+        {"id": "5", "at": "now", "audio": "stereo"},
+        {"id": "6", "at": 1.8e12, "audio": "<b>", "bitrate": 1e12},
+        {"id": "7", "at": 1.8e12, "audio": "stereo", "name": 42, "extra": "y"},
+    ]
+    writes = history_writes({"status": ATMOS_4K}, stored={"history": junk})
+    assert [e["id"] for e in writes[0]] == ["1", "7"] and "extra" not in writes[0][1]
+
+
+@needs_node
+def test_history_throttle():
+    steps = [{"status": {"received": ["heaac-2-dash"]}}, {"status": ATMOS_4K, "wait": 4000}]
+    steps.append({"wait": 4000})
+    assert len(history_writes(*steps)) == 1
+    writes = history_writes(*steps, {"wait": 4000})
+    assert [w[0]["audio"] for w in writes] == ["stereo", "ddplus-atmos-dash"]

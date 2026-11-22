@@ -14,6 +14,7 @@ from .profiles import (
     DEFAULT_PRESET,
     DEFAULT_VIDEO_CODEC,
     DEFAULT_VIDEO_MODE,
+    EXPECTED_IN_PLAYERCORE,
     PRESETS,
     VIDEO_CODECS,
     VIDEO_MODES,
@@ -96,13 +97,103 @@ def _cmd_check(args: argparse.Namespace) -> int:
     else:
         print(f"Playercore: {report.version or 'unknown version'} ({report.size} bytes)")
         for needle, ok in report.found.items():
-            print(f"  {'found  ' if ok else 'MISSING'}  {needle}")
+            hint = report.suggestions.get(needle)
+            maybe = f" (maybe {hint})" if hint else ""
+            print(f"  {'found  ' if ok else 'MISSING'}  {needle}{maybe}")
         print(
             "OK, Surroundflix should keep working."
             if report.ok
             else "Something Surroundflix relies on is gone."
         )
     return 0 if report.ok else 1
+
+
+# The only files `fix-profiles` may change, relative to --root.
+FIX_FILES = ("src/surroundflix/profiles.py", "src/surroundflix/templates/page.js")
+PACKAGE = "src/surroundflix"
+QUOTES = ('"', "'", "`")
+
+
+def _quoted_in(text: str, name: str) -> bool:
+    return any(f"{q}{name}{q}" in text for q in QUOTES)
+
+
+def _planned_renames(report: object) -> list[tuple[str, str]]:
+    """(old, new) pairs from a `check --json` report. Raises ValueError if
+    the report holds anything but names Surroundflix expects and valid
+    profile names."""
+    if not isinstance(report, dict):
+        raise ValueError("the report is not a JSON object")
+    missing, suggestions = report.get("missing", []), report.get("suggestions", {})
+    if not isinstance(missing, list) or not isinstance(suggestions, dict):
+        raise ValueError("unexpected 'missing' or 'suggestions' in the report")
+    renames: list[tuple[str, str]] = []
+    for old in missing:
+        if old not in EXPECTED_IN_PLAYERCORE:
+            raise ValueError(f"{str(old)[:80]!r} is not a name Surroundflix checks")
+        new = suggestions.get(old)
+        if new is None:
+            print(f"{old}: no likely new name, left as is")
+            continue
+        if (
+            not playercore.is_profile_name(new)
+            or new in playercore.IN_USE
+            or any(new == n for _, n in renames)
+        ):
+            raise ValueError(f"refusing {str(new)[:80]!r} as a new name for {old}")
+        renames.append((old, new))
+    return renames
+
+
+def _cmd_fix_profiles(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    try:
+        report = json.loads(Path(args.report).read_text("utf-8"))
+        renames = _planned_renames(report)
+    except (OSError, ValueError) as err:
+        print(f"fix-profiles: {err}", file=sys.stderr)
+        return 1
+
+    files = {}
+    for rel in FIX_FILES:
+        path = (root / rel).resolve()
+        if not path.is_relative_to(root) or not path.is_file():
+            print(f"fix-profiles: {rel} not found under {root}", file=sys.stderr)
+            return 1
+        files[rel] = path
+
+    # A name also used elsewhere in the package would only be half renamed.
+    others = [
+        p
+        for p in sorted((root / PACKAGE).rglob("*"))
+        if p.is_file() and "__pycache__" not in p.parts and p.resolve() not in files.values()
+    ]
+    texts = {rel: path.read_text("utf-8") for rel, path in files.items()}
+    renamed = 0
+    for old, new in renames:
+        used = [p.name for p in others if _quoted_in(p.read_text("utf-8", errors="replace"), old)]
+        if used:
+            print(f"{old}: also used in {', '.join(used)}, left for a person (maybe {new})")
+            continue
+        print(f"{old} -> {new}")
+        total = 0
+        for rel, text in texts.items():
+            count = sum(text.count(f"{q}{old}{q}") for q in QUOTES)
+            for q in QUOTES:
+                text = text.replace(f"{q}{old}{q}", f"{q}{new}{q}")
+            texts[rel] = text
+            if count:
+                print(f"  {rel}: {count} replaced")
+            total += count
+        renamed += bool(total)
+    for rel, path in files.items():
+        if texts[rel] != path.read_text("utf-8"):
+            path.write_text(texts[rel], "utf-8")
+    if not renamed:
+        print("Nothing was renamed.")
+        return 1
+    # 2: some missing names are still left for a person.
+    return 0 if renamed == len(report.get("missing", [])) else 2
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -157,6 +248,13 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--file", help="local copy of the playercore .js")
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(func=_cmd_check)
+
+    sp = sub.add_parser(
+        "fix-profiles", help="rename missing profiles to the names a `check --json` report suggests"
+    )
+    sp.add_argument("--report", required=True, help="JSON written by `check --json`")
+    sp.add_argument("--root", default=".", help="repository root (default: current folder)")
+    sp.set_defaults(func=_cmd_fix_profiles)
     return p
 
 
