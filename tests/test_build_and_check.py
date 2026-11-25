@@ -50,6 +50,11 @@ def test_build_outputs(tmp_path):
     assert any(cs.get("world") == "MAIN" for cs in chrome["content_scripts"])
     assert "INJECT = false" in (result.chrome / "content.js").read_text()
     assert '"checkDolby": true' in (result.chrome / "page.js").read_text()
+    # Chrome can't play Dolby audio, and shows 132 characters at most.
+    assert len(chrome["description"]) <= 132
+    assert "Atmos" not in chrome["description"] and "Dolby" not in chrome["description"]
+    assert "Atmos" in safari["description"]
+    assert "Not affiliated with Netflix" in chrome["description"]
 
     for f in ("Main.html", "Style.css", "Script.js", "Icon.png"):
         assert (result.app / f).exists()

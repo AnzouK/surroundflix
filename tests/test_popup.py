@@ -153,6 +153,12 @@ def test_demo_preview_outside_extension():
     assert "2160p" in out["video"] and out["rangeHidden"] is False
 
 
+def test_demo_preview_of_chrome():
+    out = run(search="?demo=surround", chrome=True)
+    assert "AAC 5.1" in out["status"] and "1080p" in out["video"]
+    assert len(out["history"]) == 3
+
+
 def test_popup_shows_version():
     assert run()["version"] == __version__
 

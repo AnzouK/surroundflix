@@ -37,6 +37,13 @@ HOMEPAGE = f"https://github.com/{REPO}"
 # Userscript managers check this file for a newer @version.
 USERSCRIPT_URL = f"{HOMEPAGE}/releases/latest/download/surroundflix.user.js"
 ICON_SIZES = (48, 96, 128, 256, 512, 1024)
+SAFARI_DESCRIPTION = "Netflix's 5.1 / Atmos audio, video quality and codec choice, and the title badges Netflix hides."
+# Chrome has no Dolby decoder, so no Atmos promise there. Chrome shows at
+# most 132 characters of it.
+CHROME_DESCRIPTION = (
+    "Asks Netflix for 5.1 surround sound in Chrome and lets you choose the video quality "
+    "and codec. Not affiliated with Netflix."
+)
 
 
 @dataclass
@@ -170,7 +177,7 @@ def render_manifest(chrome: bool = False) -> dict:
         "manifest_version": 3,
         "name": "Surroundflix",
         "version": __version__,
-        "description": "Netflix's 5.1 / Atmos audio, video quality and codec choice, and the title badges Netflix hides.",
+        "description": CHROME_DESCRIPTION if chrome else SAFARI_DESCRIPTION,
         "homepage_url": HOMEPAGE,
         "icons": {str(s): f"images/icon-{s}.png" for s in ICON_SIZES if s <= 512},
         "action": {

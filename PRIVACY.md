@@ -26,8 +26,13 @@ tracking and no cookies.
 - "Copy debug info" copies the audio and video details shown for the
   current tab, your three settings and your browser's user agent to your
   clipboard. Nothing is sent: you choose where to paste it.
-- They read nothing else: no Netflix viewing history, no account details,
-  no other site.
+- They read nothing else: not your Netflix account's viewing history, no
+  account details, no other site.
+- The Chrome Web Store asks extensions to declare the data they handle,
+  even when it never leaves the device. For Surroundflix that is the
+  playback log above (web history) and what it reads from Netflix's pages
+  for the popup, the badges and the log (website content). Neither is sent
+  anywhere, sold or shared.
 
 ## The macOS app
 
