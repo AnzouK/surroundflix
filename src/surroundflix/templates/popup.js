@@ -276,13 +276,17 @@ var VERSION = /*__SURROUNDFLIX_VERSION__*/ "0.0.0";
     });
   }
 
-  // Preview in a normal browser: popup.html?demo=atmos|stereo|waiting|noaccess|none
+  // Preview in a normal browser: popup.html?demo=atmos|surround|stereo|waiting|noaccess|none
+  // ("surround" is what Chrome gets).
   var demo = new URLSearchParams(location.search).get("demo");
   if (demo) {
     showStatus({
       atmos: { active: true, status: { received: ["ddplus-atmos-dash", "ddplus-5.1-dash", "heaac-2-dash"],
         video: { mode: "auto", height: 2160, bitrate: 10400, codec: "hevc", dynamicRange: "dv",
           codecs: ["hevc", "av1", "h264"], minHeight: 342, maxHeight: 2160 } } },
+      surround: { active: true, status: { received: ["heaac-5.1-dash", "heaac-2-dash"],
+        video: { mode: "auto", height: 1080, bitrate: 4300, codec: "av1",
+          codecs: ["av1", "vp9", "h264"], minHeight: 270, maxHeight: 1080 } } },
       stereo: { active: true, status: { received: ["heaac-2-dash"] } },
       waiting: { active: true, status: { received: null } },
       noaccess: { noAnswer: true }
@@ -387,15 +391,25 @@ var VERSION = /*__SURROUNDFLIX_VERSION__*/ "0.0.0";
     showHistory([]);
   });
 
-  if (demo === "atmos") {
-    var day = 86400000;
-    showHistory([
+  var day = 86400000;
+  var demoHistory = demo ? {
+    atmos: [
       { id: "80100172", at: Date.now() - day, name: "Example Movie", audio: "ddplus-atmos-dash",
         height: 2160, codec: "hevc", hdr: "dv", bitrate: 10400 },
       { id: "81231974", at: Date.now() - 3 * day, name: "Example Series E4", audio: "ddplus-5.1-dash",
         height: 1080, codec: "av1", bitrate: 3200 },
       { id: "70305903", at: Date.now() - 6 * day, audio: "stereo", height: 720, codec: "h264high", bitrate: 1800 }
-    ]);
+    ],
+    surround: [
+      { id: "80100172", at: Date.now() - day, name: "Example Movie", audio: "heaac-5.1-dash",
+        height: 1080, codec: "av1", bitrate: 4300 },
+      { id: "81231974", at: Date.now() - 3 * day, name: "Example Series E4", audio: "heaac-5.1-dash",
+        height: 1080, codec: "h264main", bitrate: 4100 },
+      { id: "70305903", at: Date.now() - 6 * day, audio: "stereo", height: 720, codec: "vp9", bitrate: 1800 }
+    ]
+  } : {};
+  if (demo && Object.prototype.hasOwnProperty.call(demoHistory, demo)) {
+    showHistory(demoHistory[demo]);
   } else {
     showHistory([]);
     if (storage) try {

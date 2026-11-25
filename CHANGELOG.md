@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The Chrome extension's description no longer mentions Atmos, which
+  Chrome can't play, and says Surroundflix is not affiliated with Netflix.
+
 ## [1.4.0] - 2026-11-22
 
 ### Added
