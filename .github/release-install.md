@@ -25,13 +25,15 @@ No unsigned-extension setting, but no toolbar button either.
 
 It updates itself when a new release is out.
 
-### Chrome (`surroundflix-chrome.zip`)
+### Chrome
 
 Chrome has no Dolby decoder, so it gets Netflix's AAC 5.1 when a title has it.
 
-1. Unzip `surroundflix-chrome.zip`.
-2. Open `chrome://extensions`, turn on **Developer mode**, click
-   **Load unpacked** and pick the unzipped folder.
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/surroundflix/kghpifnppgjefdkjcjinjpeakkonhmob): it updates
+itself once Google has reviewed a new version. To use this release before
+that, unzip `surroundflix-chrome.zip`, open `chrome://extensions`, turn on
+**Developer mode**, click **Load unpacked** and pick the unzipped folder
+(remove the store version first).
 
 ### Check that it works
 
