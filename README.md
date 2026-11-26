@@ -10,7 +10,7 @@
 <a href="https://github.com/AnzouK/surroundflix/releases"><img src="https://img.shields.io/github/v/release/AnzouK/surroundflix?include_prereleases&label=release&color=8250df" alt="Latest release"></a>
 <a href="https://github.com/AnzouK/surroundflix#AGPL-3.0-1-ov-file"><img src="https://img.shields.io/badge/License-AGPL--3.0-6c8f2d" alt="License: AGPL-3.0"></a>
 <img src="https://img.shields.io/badge/macOS-Safari%2016.4%2B-2f6f9f?logo=safari&logoColor=white" alt="macOS, Safari 16.4 or later">
-<img src="https://img.shields.io/badge/Chrome-AAC%205.1-2f6f9f?logo=googlechrome&logoColor=white" alt="Chrome: AAC 5.1">
+<a href="https://chromewebstore.google.com/detail/surroundflix/kghpifnppgjefdkjcjinjpeakkonhmob"><img src="https://img.shields.io/badge/Chrome%20Web%20Store-AAC%205.1-2f6f9f?logo=googlechrome&logoColor=white" alt="Chrome Web Store: AAC 5.1"></a>
 <img src="https://img.shields.io/badge/audio-5.1%20%C2%B7%20Atmos-de9a40" alt="Audio: 5.1 and Atmos">
 <img src="https://img.shields.io/badge/interface-3%20languages-c9a227" alt="Interface in 3 languages">
 
@@ -31,6 +31,8 @@ AirPods Pro, AirPods Max or a surround setup. Surroundflix asks Netflix for
 its Dolby Digital Plus 5.1 and Atmos tracks instead, so macOS can play them
 with Spatial Audio. It also lets you choose the video quality and codec,
 and shows the Atmos, 5.1 and 4K badges Netflix hides on its web pages.
+In Chrome, which can't play Dolby audio, the extension from the
+[Chrome Web Store](https://chromewebstore.google.com/detail/surroundflix/kghpifnppgjefdkjcjinjpeakkonhmob) asks for the AAC 5.1 track instead.
 
 > [!NOTE]
 > Netflix can change its player at any time; a daily check watches for
@@ -152,9 +154,9 @@ browser's language.
 
 ## Install
 
-Download the latest release from the
+For Safari, download the latest release from the
 [Releases page](https://github.com/AnzouK/surroundflix/releases).
-Requires macOS with Safari 16.4 or later.
+Requires macOS with Safari 16.4 or later. For Chrome, see [Chrome](#chrome).
 
 ### Option A: the app (Surroundflix.dmg)
 
@@ -189,8 +191,13 @@ still offer one. On macOS, Chrome doesn't hand multichannel audio to
 AirPods, so Spatial Audio shows as unavailable and you hear a stereo
 downmix. It's mostly useful with real 5.1 speakers.
 
-1. Download `surroundflix-chrome.zip` from the release and unzip it.
-2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the unzipped folder.
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/surroundflix/kghpifnppgjefdkjcjinjpeakkonhmob), which keeps it
+up to date. New versions reach the store a few days after the release,
+once Google has reviewed them. To use a release before that, download
+`surroundflix-chrome.zip` from the
+[Releases page](https://github.com/AnzouK/surroundflix/releases), unzip it, open `chrome://extensions`, turn on
+**Developer mode**, click **Load unpacked** and pick the unzipped folder
+(remove the store version first, so only one copy runs).
 
 ## Check that it works
 
